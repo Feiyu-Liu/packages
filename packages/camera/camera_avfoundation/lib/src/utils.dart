@@ -5,6 +5,7 @@
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/services.dart';
 
+import 'avfoundation_types.dart';
 import 'messages.g.dart';
 
 /// Creates a [CameraDescription] from a Pigeon [PlatformCameraDescription].
@@ -38,6 +39,78 @@ CameraLensType cameraLensTypeFromPlatform(PlatformCameraLensType type) {
     PlatformCameraLensType.ultraWide => CameraLensType.ultraWide,
     PlatformCameraLensType.unknown => CameraLensType.unknown,
   };
+}
+
+/// Converts a Pigeon [PlatformCaptureDeviceType] to an
+/// [AVFoundationCaptureDeviceType].
+AVFoundationCaptureDeviceType captureDeviceTypeFromPlatform(
+  PlatformCaptureDeviceType type,
+) {
+  return switch (type) {
+    PlatformCaptureDeviceType.builtInWideAngleCamera =>
+      AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+    PlatformCaptureDeviceType.builtInTelephotoCamera =>
+      AVFoundationCaptureDeviceType.builtInTelephotoCamera,
+    PlatformCaptureDeviceType.builtInUltraWideCamera =>
+      AVFoundationCaptureDeviceType.builtInUltraWideCamera,
+    PlatformCaptureDeviceType.builtInDualCamera =>
+      AVFoundationCaptureDeviceType.builtInDualCamera,
+    PlatformCaptureDeviceType.builtInDualWideCamera =>
+      AVFoundationCaptureDeviceType.builtInDualWideCamera,
+    PlatformCaptureDeviceType.builtInTripleCamera =>
+      AVFoundationCaptureDeviceType.builtInTripleCamera,
+    PlatformCaptureDeviceType.builtInTrueDepthCamera =>
+      AVFoundationCaptureDeviceType.builtInTrueDepthCamera,
+    PlatformCaptureDeviceType.unknown => AVFoundationCaptureDeviceType.unknown,
+  };
+}
+
+/// Creates an [AVFoundationPhysicalCameraDevice] from Pigeon data.
+AVFoundationPhysicalCameraDevice constituentDeviceFromPlatform(
+  PlatformConstituentDevice device,
+) {
+  return AVFoundationPhysicalCameraDevice(
+    id: device.name,
+    lensDirection: cameraLensDirectionFromPlatform(device.lensDirection),
+    lensType: cameraLensTypeFromPlatform(device.lensType),
+    deviceType: captureDeviceTypeFromPlatform(device.deviceType),
+  );
+}
+
+/// Creates an [AVFoundationCameraDevice] from Pigeon data.
+AVFoundationCameraDevice avFoundationCameraDeviceFromPlatform(
+  PlatformCameraDevice device,
+) {
+  return AVFoundationCameraDevice(
+    id: device.name,
+    lensDirection: cameraLensDirectionFromPlatform(device.lensDirection),
+    lensType: cameraLensTypeFromPlatform(device.lensType),
+    deviceType: captureDeviceTypeFromPlatform(device.deviceType),
+    isVirtualDevice: device.isVirtualDevice,
+    constituentDevices: device.constituentDevices
+        .map(constituentDeviceFromPlatform)
+        .toList(),
+  );
+}
+
+/// Creates [AVFoundationZoomCapabilities] from Pigeon data.
+AVFoundationZoomCapabilities zoomCapabilitiesFromPlatform(
+  PlatformZoomCapabilities capabilities,
+) {
+  return AVFoundationZoomCapabilities(
+    minZoomFactor: capabilities.minZoomFactor,
+    maxZoomFactor: capabilities.maxZoomFactor,
+    currentZoomFactor: capabilities.currentZoomFactor,
+    displayZoomFactorMultiplier: capabilities.displayZoomFactorMultiplier,
+    virtualDeviceSwitchOverZoomFactors:
+        capabilities.virtualDeviceSwitchOverZoomFactors,
+    secondaryNativeResolutionZoomFactors:
+        capabilities.secondaryNativeResolutionZoomFactors,
+    isVirtualDevice: capabilities.isVirtualDevice,
+    constituentDevices: capabilities.constituentDevices
+        .map(constituentDeviceFromPlatform)
+        .toList(),
+  );
 }
 
 /// Convents the given device orientation to Pigeon.

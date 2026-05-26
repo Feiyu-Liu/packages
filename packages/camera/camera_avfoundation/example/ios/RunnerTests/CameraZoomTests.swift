@@ -45,6 +45,115 @@ final class CameraZoomTests: XCTestCase {
     XCTAssertTrue(setVideoZoomFactorCalled)
   }
 
+  func testSetZoomFactorAnimated_rampsVideoZoomFactor() {
+    let (camera, mockDevice) = createCamera()
+
+    mockDevice.maxAvailableVideoZoomFactor = 5.0
+    mockDevice.minAvailableVideoZoomFactor = 0.5
+
+    let targetZoom = CGFloat(2.0)
+    let targetRate = Float(5.0)
+
+    var rampCalled = false
+    mockDevice.rampToVideoZoomFactorStub = { zoom, rate in
+      XCTAssertEqual(zoom, targetZoom)
+      XCTAssertEqual(rate, targetRate)
+      rampCalled = true
+    }
+
+    let expectation = expectation(description: "Call completed")
+
+    camera.setZoomFactor(targetZoom, animated: true, rate: targetRate) { result in
+      let _ = self.assertSuccess(result)
+      expectation.fulfill()
+    }
+
+    waitForExpectations(timeout: 30)
+
+    XCTAssertTrue(rampCalled)
+  }
+
+  func testSetZoomFactorImmediate_cancelsRampAndSetsVideoZoomFactor() {
+    let (camera, mockDevice) = createCamera()
+
+    mockDevice.maxAvailableVideoZoomFactor = 5.0
+    mockDevice.minAvailableVideoZoomFactor = 0.5
+
+    let targetZoom = CGFloat(2.0)
+
+    var cancelRampCalled = false
+    var setVideoZoomFactorCalled = false
+    mockDevice.cancelVideoZoomRampStub = {
+      cancelRampCalled = true
+    }
+    mockDevice.setVideoZoomFactorStub = { zoom in
+      XCTAssertEqual(zoom, targetZoom)
+      setVideoZoomFactorCalled = true
+    }
+
+    let expectation = expectation(description: "Call completed")
+
+    camera.setZoomFactor(targetZoom, animated: false, rate: 0) { result in
+      let _ = self.assertSuccess(result)
+      expectation.fulfill()
+    }
+
+    waitForExpectations(timeout: 30)
+
+    XCTAssertTrue(cancelRampCalled)
+    XCTAssertTrue(setVideoZoomFactorCalled)
+  }
+
+  func testSetZoomFactorAnimated_returnsErrorForInvalidRate() {
+    let (camera, mockDevice) = createCamera()
+
+    mockDevice.maxAvailableVideoZoomFactor = 5.0
+    mockDevice.minAvailableVideoZoomFactor = 0.5
+
+    let expectation = expectation(description: "Call completed")
+
+    camera.setZoomFactor(2.0, animated: true, rate: 0) { result in
+      switch result {
+      case .failure(let error as PigeonError):
+        XCTAssertEqual(error.code, "ZOOM_ERROR")
+      default:
+        XCTFail("Expected failure")
+      }
+      expectation.fulfill()
+    }
+
+    waitForExpectations(timeout: 30)
+  }
+
+  func testZoomCapabilities_returnsDeviceZoomMetadata() {
+    let (camera, mockDevice) = createCamera()
+
+    let wideAngleCamera = MockCaptureDevice()
+    wideAngleCamera.uniqueID = "wide"
+    wideAngleCamera.position = .back
+    wideAngleCamera.deviceType = .builtInWideAngleCamera
+
+    mockDevice.maxAvailableVideoZoomFactor = 10.0
+    mockDevice.minAvailableVideoZoomFactor = 0.5
+    mockDevice.storedVideoZoomFactor = 2.0
+    mockDevice.flutterDisplayVideoZoomFactorMultiplier = 0.5
+    mockDevice.virtualDeviceSwitchOverVideoZoomFactors = [1.0, 3.0]
+    mockDevice.flutterSecondaryNativeResolutionZoomFactors = [2.0]
+    mockDevice.isVirtualDevice = true
+    mockDevice.flutterConstituentDevices = [wideAngleCamera]
+
+    let capabilities = camera.zoomCapabilities
+
+    XCTAssertEqual(capabilities.minZoomFactor, 0.5)
+    XCTAssertEqual(capabilities.maxZoomFactor, 10.0)
+    XCTAssertEqual(capabilities.currentZoomFactor, 2.0)
+    XCTAssertEqual(capabilities.displayZoomFactorMultiplier, 0.5)
+    XCTAssertEqual(capabilities.virtualDeviceSwitchOverZoomFactors, [1.0, 3.0])
+    XCTAssertEqual(capabilities.secondaryNativeResolutionZoomFactors, [2.0])
+    XCTAssertEqual(capabilities.isVirtualDevice, true)
+    XCTAssertEqual(capabilities.constituentDevices.first?.name, "wide")
+  }
+
   func testSetZoomLevel_returnsError_forZoomLevelBlowMinimum() {
     let (camera, mockDevice) = createCamera()
 

@@ -17,6 +17,7 @@ public final class CameraPlugin: NSObject, FlutterPlugin {
 
   /// All FLTCam's state access and capture session related operations should be on run on this queue.
   private let captureSessionQueue: DispatchQueue
+  private var cameraId: Int64?
 
   /// An internal camera object that manages camera's state and performs camera operations.
   var camera: Camera?
@@ -141,12 +142,10 @@ extension CameraPlugin: CameraApi {
       var reply: [PlatformCameraDescription] = []
 
       for device in devices {
-        let lensFacing = strongSelf.platformLensDirection(for: device)
-        let lensType = strongSelf.platformLensType(for: device)
         let cameraDescription = PlatformCameraDescription(
           name: device.uniqueID,
-          lensDirection: lensFacing,
-          lensType: lensType
+          lensDirection: DefaultCamera.platformLensDirection(for: device),
+          lensType: DefaultCamera.platformLensType(for: device)
         )
         reply.append(cameraDescription)
       }
@@ -155,31 +154,39 @@ extension CameraPlugin: CameraApi {
     }
   }
 
-  private func platformLensDirection(for device: CaptureDevice) -> PlatformCameraLensDirection {
-    switch device.position {
-    case .back:
-      return .back
-    case .front:
-      return .front
-    case .unspecified:
-      return .external
-    @unknown default:
-      return .external
-    }
-  }
+  func getAvailableCameraDevices(
+    completion: @escaping (Result<[PlatformCameraDevice], any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      guard let strongSelf = self else { return }
 
-  private func platformLensType(for device: CaptureDevice) -> PlatformCameraLensType {
-    switch device.deviceType {
-    case .builtInWideAngleCamera:
-      return .wide
-    case .builtInTelephotoCamera:
-      return .telephoto
-    case .builtInUltraWideCamera:
-      return .ultraWide
-    case .builtInDualWideCamera:
-      return .wide
-    default:
-      return .unknown
+      let discoveryDevices: [AVCaptureDevice.DeviceType] = [
+        .builtInWideAngleCamera,
+        .builtInTelephotoCamera,
+        .builtInUltraWideCamera,
+        .builtInDualCamera,
+        .builtInDualWideCamera,
+        .builtInTripleCamera,
+        .builtInTrueDepthCamera,
+      ]
+
+      let devices = strongSelf.deviceDiscoverer.discoverySession(
+        withDeviceTypes: discoveryDevices,
+        mediaType: .video,
+        position: .unspecified)
+
+      let reply = devices.map { device in
+        PlatformCameraDevice(
+          name: device.uniqueID,
+          lensDirection: DefaultCamera.platformLensDirection(for: device),
+          lensType: DefaultCamera.platformLensType(for: device),
+          deviceType: DefaultCamera.platformCaptureDeviceType(for: device),
+          isVirtualDevice: device.isVirtualDevice,
+          constituentDevices: device.flutterConstituentDevices.map(DefaultCamera.platformConstituentDevice)
+        )
+      }
+
+      completion(.success(reply))
     }
   }
 
@@ -292,6 +299,7 @@ extension CameraPlugin: CameraApi {
   ) {
     guard let camera = camera else { return }
 
+    self.cameraId = cameraId
     camera.videoFormat = getPixelFormat(for: imageFormat)
 
     camera.onFrameAvailable = { [weak self] in
@@ -307,11 +315,28 @@ extension CameraPlugin: CameraApi {
       binaryMessenger: messenger,
       messageChannelSuffix: "\(cameraId)"
     )
+    camera.onZoomFactorChanged = { [weak self] zoomFactor, isRamping in
+      self?.sendZoomFactorChanged(zoomFactor, isRamping: isRamping)
+    }
 
     camera.reportInitializationState()
     sendDeviceOrientation(UIDevice.current.orientation)
     camera.start()
     completion(.success(()))
+  }
+
+  private func sendZoomFactorChanged(_ zoomFactor: CGFloat, isRamping: Bool) {
+    guard cameraId != nil else {
+      return
+    }
+    DispatchQueue.main.async { [weak self] in
+      self?.camera?.dartAPI?.zoomFactorChanged(
+        zoomFactor: Double(zoomFactor),
+        isRamping: isRamping
+      ) { _ in
+        // Ignore errors; this is a best-effort event broadcast.
+      }
+    }
   }
 
   func startImageStream(completion: @escaping (Result<Void, any Error>) -> Void) {
@@ -344,6 +369,7 @@ extension CameraPlugin: CameraApi {
       if let strongSelf = self {
         strongSelf.camera?.close()
         strongSelf.camera = nil
+        strongSelf.cameraId = nil
       }
       completion(.success(()))
     }
@@ -500,6 +526,48 @@ extension CameraPlugin: CameraApi {
   func setZoomLevel(zoom: Double, completion: @escaping (Result<Void, any Error>) -> Void) {
     captureSessionQueue.async { [weak self] in
       self?.camera?.setZoomLevel(zoom, withCompletion: completion)
+    }
+  }
+
+  func getZoomCapabilities(
+    completion: @escaping (Result<PlatformZoomCapabilities, any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      guard let camera = self?.camera else {
+        completion(
+          .failure(
+            PigeonError(
+              code: "cameraNotFound",
+              message: "Camera is not initialized.",
+              details: nil)))
+        return
+      }
+      completion(.success(camera.zoomCapabilities))
+    }
+  }
+
+  func getCurrentZoomFactor(completion: @escaping (Result<Double, any Error>) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      if let zoomFactor = self?.camera?.currentZoomFactor {
+        completion(.success(zoomFactor))
+      } else {
+        completion(.success(0))
+      }
+    }
+  }
+
+  func setZoomFactor(
+    zoomFactor: Double,
+    animated: Bool,
+    rate: Double,
+    completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setZoomFactor(
+        CGFloat(zoomFactor),
+        animated: animated,
+        rate: Float(rate),
+        withCompletion: completion)
     }
   }
 

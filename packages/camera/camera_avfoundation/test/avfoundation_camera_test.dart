@@ -7,6 +7,7 @@ import 'dart:math';
 
 import 'package:async/async.dart';
 import 'package:camera_avfoundation/src/avfoundation_camera.dart';
+import 'package:camera_avfoundation/src/avfoundation_types.dart';
 import 'package:camera_avfoundation/src/messages.g.dart';
 import 'package:camera_avfoundation/src/utils.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
@@ -452,6 +453,43 @@ void main() {
       },
     );
 
+    test('Should fetch AVFoundation camera devices', () async {
+      final returnData = <PlatformCameraDevice>[
+        PlatformCameraDevice(
+          name: 'virtual-back',
+          lensDirection: PlatformCameraLensDirection.back,
+          lensType: PlatformCameraLensType.wide,
+          deviceType: PlatformCaptureDeviceType.builtInTripleCamera,
+          isVirtualDevice: true,
+          constituentDevices: <PlatformConstituentDevice>[
+            PlatformConstituentDevice(
+              name: 'wide',
+              lensDirection: PlatformCameraLensDirection.back,
+              lensType: PlatformCameraLensType.wide,
+              deviceType: PlatformCaptureDeviceType.builtInWideAngleCamera,
+            ),
+          ],
+        ),
+      ];
+      when(
+        mockApi.getAvailableCameraDevices(),
+      ).thenAnswer((_) async => returnData);
+
+      final List<AVFoundationCameraDevice> devices = await camera
+          .getAvailableCameraDevices();
+
+      expect(devices, hasLength(1));
+      expect(devices.single.id, 'virtual-back');
+      expect(devices.single.lensDirection, CameraLensDirection.back);
+      expect(
+        devices.single.deviceType,
+        AVFoundationCaptureDeviceType.builtInTripleCamera,
+      );
+      expect(devices.single.isVirtualDevice, isTrue);
+      expect(devices.single.constituentDevices.single.id, 'wide');
+      expect(devices.single.toCameraDescription().name, devices.single.id);
+    });
+
     test('Should take a picture and return an XFile instance', () async {
       const stubPath = '/test/path.jpg';
       when(mockApi.takePicture()).thenAnswer((_) async => stubPath);
@@ -684,6 +722,73 @@ void main() {
       await camera.setZoomLevel(cameraId, zoom);
 
       verify(mockApi.setZoomLevel(zoom));
+    });
+
+    test('Should get AVFoundation zoom capabilities', () async {
+      when(mockApi.getZoomCapabilities()).thenAnswer(
+        (_) async => PlatformZoomCapabilities(
+          minZoomFactor: 0.5,
+          maxZoomFactor: 15,
+          currentZoomFactor: 2,
+          displayZoomFactorMultiplier: 0.5,
+          virtualDeviceSwitchOverZoomFactors: <double>[1, 3],
+          secondaryNativeResolutionZoomFactors: <double>[2],
+          isVirtualDevice: true,
+          constituentDevices: <PlatformConstituentDevice>[
+            PlatformConstituentDevice(
+              name: 'tele',
+              lensDirection: PlatformCameraLensDirection.back,
+              lensType: PlatformCameraLensType.telephoto,
+              deviceType: PlatformCaptureDeviceType.builtInTelephotoCamera,
+            ),
+          ],
+        ),
+      );
+
+      final AVFoundationZoomCapabilities capabilities = await camera
+          .getZoomCapabilities(cameraId);
+
+      expect(capabilities.minZoomFactor, 0.5);
+      expect(capabilities.maxZoomFactor, 15);
+      expect(capabilities.currentZoomFactor, 2);
+      expect(capabilities.displayZoomFactorMultiplier, 0.5);
+      expect(capabilities.virtualDeviceSwitchOverZoomFactors, <double>[1, 3]);
+      expect(capabilities.secondaryNativeResolutionZoomFactors, <double>[2]);
+      expect(capabilities.isVirtualDevice, isTrue);
+      expect(
+        capabilities.constituentDevices.single.lensType,
+        CameraLensType.telephoto,
+      );
+    });
+
+    test('Should get the current AVFoundation zoom factor', () async {
+      when(mockApi.getCurrentZoomFactor()).thenAnswer((_) async => 3.5);
+
+      final double zoomFactor = await camera.getCurrentZoomFactor(cameraId);
+
+      expect(zoomFactor, 3.5);
+    });
+
+    test('Should set the AVFoundation zoom factor', () async {
+      await camera.setZoomFactor(cameraId, 2.0, animated: true);
+
+      verify(mockApi.setZoomFactor(2.0, true, 5.0));
+    });
+
+    test('Should emit AVFoundation zoom factor changed events', () async {
+      final events = StreamQueue<AVFoundationZoomChangedEvent>(
+        camera.onZoomFactorChanged(cameraId),
+      );
+
+      camera.cameraEventStreamController.add(
+        AVFoundationZoomChangedEvent(cameraId, 2.0, true),
+      );
+
+      final AVFoundationZoomChangedEvent event = await events.next;
+      expect(event.cameraId, cameraId);
+      expect(event.zoomFactor, 2.0);
+      expect(event.isRamping, isTrue);
+      await events.cancel();
     });
 
     test(

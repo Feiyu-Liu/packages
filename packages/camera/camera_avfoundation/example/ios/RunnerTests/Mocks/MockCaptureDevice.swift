@@ -21,6 +21,8 @@ class MockCaptureDevice: NSObject, CaptureDevice {
   var setExposureTargetBiasStub: ((Float, ((CMTime) -> Void)?) -> Void)?
   var isExposureModeSupportedStub: ((AVCaptureDevice.ExposureMode) -> Bool)?
   var setVideoZoomFactorStub: ((CGFloat) -> Void)?
+  var rampToVideoZoomFactorStub: ((CGFloat, Float) -> Void)?
+  var cancelVideoZoomRampStub: (() -> Void)?
   var lockForConfigurationStub: (() throws -> Void)?
 
   var avDevice: AVCaptureDevice {
@@ -55,9 +57,17 @@ class MockCaptureDevice: NSObject, CaptureDevice {
   var isFocusPointOfInterestSupported = false
   var maxAvailableVideoZoomFactor = CGFloat(0)
   var minAvailableVideoZoomFactor = CGFloat(0)
+  var storedVideoZoomFactor = CGFloat(0)
+  var isVirtualDevice = false
+  var flutterConstituentDevices: [CaptureDevice] = []
+  var virtualDeviceSwitchOverVideoZoomFactors: [NSNumber] = []
+  var flutterSecondaryNativeResolutionZoomFactors: [CGFloat] = []
+  var flutterDisplayVideoZoomFactorMultiplier = CGFloat(1)
+  var isRampingVideoZoom = false
   var videoZoomFactor: CGFloat {
-    get { 0 }
+    get { storedVideoZoomFactor }
     set {
+      storedVideoZoomFactor = newValue
       setVideoZoomFactorStub?(newValue)
     }
   }
@@ -117,6 +127,17 @@ class MockCaptureDevice: NSObject, CaptureDevice {
     -> Bool
   {
     return false
+  }
+
+  func ramp(toVideoZoomFactor factor: CGFloat, withRate rate: Float) {
+    storedVideoZoomFactor = factor
+    isRampingVideoZoom = true
+    rampToVideoZoomFactorStub?(factor, rate)
+  }
+
+  func cancelVideoZoomRamp() {
+    isRampingVideoZoom = false
+    cancelVideoZoomRampStub?()
   }
 
   func lockForConfiguration() throws {

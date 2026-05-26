@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +69,10 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   double _maxAvailableZoom = 1.0;
   double _currentScale = 1.0;
   double _baseScale = 1.0;
+  AVFoundationCamera? _avFoundationCamera;
+  AVFoundationZoomCapabilities? _zoomCapabilities;
+  StreamSubscription<AVFoundationZoomChangedEvent>? _zoomSubscription;
+  bool _isZoomRamping = false;
 
   // Counting pointers (number of user fingers on screen)
   int _pointers = 0;
@@ -106,6 +111,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _zoomSubscription?.cancel();
     _flashModeControlRowAnimationController.dispose();
     _exposureModeControlRowAnimationController.dispose();
     super.dispose();
@@ -156,7 +162,11 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
           Padding(
             padding: const EdgeInsets.all(5.0),
             child: Row(
-              children: <Widget>[_cameraTogglesRowWidget(), _thumbnailWidget()],
+              children: <Widget>[
+                Expanded(child: _cameraTogglesRowWidget()),
+                const SizedBox(width: 8),
+                _thumbnailWidget(),
+              ],
             ),
           ),
         ],
@@ -183,16 +193,28 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         onPointerUp: (_) => _pointers--,
         child: CameraPreview(
           controller!,
-          child: LayoutBuilder(
-            builder: (BuildContext context, BoxConstraints constraints) {
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onScaleStart: _handleScaleStart,
-                onScaleUpdate: _handleScaleUpdate,
-                onTapDown: (TapDownDetails details) =>
-                    onViewFinderTap(details, constraints),
-              );
-            },
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onScaleStart: _handleScaleStart,
+                      onScaleUpdate: _handleScaleUpdate,
+                      onTapDown: (TapDownDetails details) =>
+                          onViewFinderTap(details, constraints),
+                    );
+                  },
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 18,
+                child: Center(child: _zoomControlWidget()),
+              ),
+            ],
           ),
         ),
       );
@@ -218,48 +240,193 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       controller!.cameraId,
       _currentScale,
     );
+    await _refreshAVFoundationZoomFactor();
+  }
+
+  Widget _zoomControlWidget() {
+    final CameraController? cameraController = controller;
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      return const SizedBox.shrink();
+    }
+
+    final double multiplier =
+        _zoomCapabilities?.displayZoomFactorMultiplier ?? 1.0;
+    final double currentDisplayZoom = _currentScale * multiplier;
+    final List<double> displayZooms = _zoomButtonDisplayFactors();
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            for (final double displayZoom in displayZooms)
+              _ZoomButton(
+                label: _formatDisplayZoom(displayZoom),
+                selected: (currentDisplayZoom - displayZoom).abs() < 0.08,
+                enabled: _canSetDisplayZoom(displayZoom),
+                onPressed: () => _setDisplayZoom(displayZoom),
+              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                '${currentDisplayZoom.toStringAsFixed(2)}x'
+                '${_isZoomRamping ? ' ramp' : ''}',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontFeatures: <FontFeature>[FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<double> _zoomButtonDisplayFactors() {
+    final AVFoundationZoomCapabilities? capabilities = _zoomCapabilities;
+    final double multiplier = capabilities?.displayZoomFactorMultiplier ?? 1.0;
+    final displayFactors = <double>{
+      _normalizeDisplayZoom(_minAvailableZoom * multiplier),
+      1.0,
+    };
+
+    if (capabilities != null) {
+      displayFactors.addAll(
+        capabilities.virtualDeviceSwitchOverZoomFactors.map(
+          (double rawZoom) => _normalizeDisplayZoom(rawZoom * multiplier),
+        ),
+      );
+      displayFactors.addAll(
+        capabilities.secondaryNativeResolutionZoomFactors.map(
+          (double rawZoom) => _normalizeDisplayZoom(rawZoom * multiplier),
+        ),
+      );
+    }
+
+    final List<double> sortedDisplayFactors = displayFactors.toList()..sort();
+    return sortedDisplayFactors
+        .where((double displayZoom) => _canSetDisplayZoom(displayZoom))
+        .toList();
+  }
+
+  double _normalizeDisplayZoom(double displayZoom) {
+    return (displayZoom * 100).roundToDouble() / 100;
+  }
+
+  bool _canSetDisplayZoom(double displayZoom) {
+    final double rawZoom = _displayZoomToRawZoom(displayZoom);
+    return rawZoom >= _minAvailableZoom && rawZoom <= _maxAvailableZoom;
+  }
+
+  double _displayZoomToRawZoom(double displayZoom) {
+    final double multiplier =
+        _zoomCapabilities?.displayZoomFactorMultiplier ?? 1.0;
+    final safeMultiplier = multiplier == 0 ? 1.0 : multiplier;
+    return displayZoom / safeMultiplier;
+  }
+
+  String _formatDisplayZoom(double displayZoom) {
+    if (displayZoom == 0.5) {
+      return '.5x';
+    }
+    if (displayZoom == displayZoom.roundToDouble()) {
+      return '${displayZoom.toInt()}x';
+    }
+    return '${displayZoom.toStringAsFixed(1)}x';
+  }
+
+  Future<void> _setDisplayZoom(double displayZoom) async {
+    final CameraController? cameraController = controller;
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      return;
+    }
+
+    final double rawZoom = _displayZoomToRawZoom(
+      displayZoom,
+    ).clamp(_minAvailableZoom, _maxAvailableZoom);
+
+    try {
+      final AVFoundationCamera? avFoundationCamera = _avFoundationCamera;
+      if (avFoundationCamera != null) {
+        await avFoundationCamera.setZoomFactor(
+          cameraController.cameraId,
+          rawZoom,
+          animated: true,
+        );
+      } else {
+        await CameraPlatform.instance.setZoomLevel(
+          cameraController.cameraId,
+          rawZoom,
+        );
+      }
+      _currentScale = rawZoom;
+      if (mounted) {
+        setState(() {});
+      }
+    } on CameraException catch (e) {
+      _showCameraException(e);
+    }
+  }
+
+  Future<void> _refreshAVFoundationZoomFactor() async {
+    final CameraController? cameraController = controller;
+    final AVFoundationCamera? avFoundationCamera = _avFoundationCamera;
+    if (cameraController == null ||
+        !cameraController.value.isInitialized ||
+        avFoundationCamera == null) {
+      return;
+    }
+
+    try {
+      final double zoomFactor = await avFoundationCamera.getCurrentZoomFactor(
+        cameraController.cameraId,
+      );
+      if (mounted) {
+        setState(() {
+          _currentScale = zoomFactor;
+        });
+      }
+    } on CameraException catch (e) {
+      _showCameraException(e);
+    }
   }
 
   /// Display the thumbnail of the captured image or video.
   Widget _thumbnailWidget() {
     final VideoPlayerController? localVideoController = videoController;
 
-    return Expanded(
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (localVideoController == null && imageFile == null)
-              Container()
-            else
-              SizedBox(
-                width: 64.0,
-                height: 64.0,
-                child: (localVideoController == null)
-                    ? (
-                      // The captured image on the web contains a network-accessible URL
-                      // pointing to a location within the browser. It may be displayed
-                      // either with Image.network or Image.memory after loading the image
-                      // bytes to memory.
-                      kIsWeb
-                          ? Image.network(imageFile!.path)
-                          : Image.file(File(imageFile!.path)))
-                    : Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.pink),
-                        ),
-                        child: Center(
-                          child: AspectRatio(
-                            aspectRatio: localVideoController.value.aspectRatio,
-                            child: VideoPlayer(localVideoController),
-                          ),
-                        ),
-                      ),
+    if (localVideoController == null && imageFile == null) {
+      return const SizedBox(width: 64.0, height: 64.0);
+    }
+
+    return SizedBox(
+      width: 64.0,
+      height: 64.0,
+      child: (localVideoController == null)
+          ? (
+            // The captured image on the web contains a network-accessible URL
+            // pointing to a location within the browser. It may be displayed
+            // either with Image.network or Image.memory after loading the image
+            // bytes to memory.
+            kIsWeb
+                ? Image.network(imageFile!.path)
+                : Image.file(File(imageFile!.path)))
+          : Container(
+              decoration: BoxDecoration(border: Border.all(color: Colors.pink)),
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: localVideoController.value.aspectRatio,
+                  child: VideoPlayer(localVideoController),
+                ),
               ),
-          ],
-        ),
-      ),
+            ),
     );
   }
 
@@ -577,9 +744,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
   /// Display a row of toggle to select the camera (or a message if no camera is available).
   Widget _cameraTogglesRowWidget() {
-    final toggles = <Widget>[];
-
-    if (_cameras.isEmpty) {
+    if (_cameraChoices.isEmpty) {
       SchedulerBinding.instance.addPostFrameCallback((_) async {
         showInSnackBar('No camera found.');
       });
@@ -588,27 +753,24 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
     final bool isRecording = controller?.value.isRecordingVideo ?? false;
 
-    for (final CameraDescription cameraDescription in _cameras) {
-      toggles.add(
-        SizedBox(
-          width: 90.0,
-          child: RadioListTile<CameraDescription>(
-            title: Icon(getCameraLensIcon(cameraDescription.lensDirection)),
-            value: cameraDescription,
-            enabled: !isRecording,
-          ),
+    return SizedBox(
+      height: 64,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: <Widget>[
+            for (final _CameraChoice cameraChoice in _cameraChoices)
+              _CameraChoiceButton(
+                cameraChoice: cameraChoice,
+                selected:
+                    controller?.description.name ==
+                    cameraChoice.description.name,
+                enabled: !isRecording,
+                onPressed: () => onNewCameraSelected(cameraChoice.description),
+              ),
+          ],
         ),
-      );
-    }
-
-    return RadioGroup<CameraDescription>(
-      groupValue: controller?.description,
-      onChanged: (CameraDescription? description) {
-        if (description != null) {
-          onNewCameraSelected(description);
-        }
-      },
-      child: Row(children: toggles),
+      ),
     );
   }
 
@@ -637,7 +799,12 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
   Future<void> onNewCameraSelected(CameraDescription cameraDescription) async {
     if (controller != null) {
-      return controller!.setDescription(cameraDescription);
+      await controller!.setDescription(cameraDescription);
+      await _configureAVFoundationZoom(controller!);
+      if (mounted) {
+        setState(() {});
+      }
+      return;
     } else {
       return _initializeCameraController(cameraDescription);
     }
@@ -687,6 +854,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
             .getMinZoomLevel(cameraController.cameraId)
             .then((double value) => _minAvailableZoom = value),
       ]);
+      await _configureAVFoundationZoom(cameraController);
     } on CameraException catch (e) {
       switch (e.code) {
         case 'CameraAccessDenied':
@@ -716,6 +884,47 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     if (mounted) {
       setState(() {});
     }
+  }
+
+  Future<void> _configureAVFoundationZoom(
+    CameraController cameraController,
+  ) async {
+    final List<double> zoomRange = await Future.wait(<Future<double>>[
+      CameraPlatform.instance.getMinZoomLevel(cameraController.cameraId),
+      CameraPlatform.instance.getMaxZoomLevel(cameraController.cameraId),
+    ]);
+
+    await _zoomSubscription?.cancel();
+    _zoomSubscription = null;
+    _avFoundationCamera = null;
+    _zoomCapabilities = null;
+    _isZoomRamping = false;
+    _minAvailableZoom = zoomRange[0];
+    _maxAvailableZoom = zoomRange[1];
+
+    final CameraPlatform platform = CameraPlatform.instance;
+    if (platform is! AVFoundationCamera) {
+      _currentScale = _minAvailableZoom;
+      return;
+    }
+
+    _avFoundationCamera = platform;
+    final AVFoundationZoomCapabilities capabilities = await platform
+        .getZoomCapabilities(cameraController.cameraId);
+    _zoomCapabilities = capabilities;
+    _currentScale = capabilities.currentZoomFactor;
+
+    _zoomSubscription = platform
+        .onZoomFactorChanged(cameraController.cameraId)
+        .listen((AVFoundationZoomChangedEvent event) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _currentScale = event.zoomFactor;
+            _isZoomRamping = event.isRamping;
+          });
+        });
   }
 
   void onTakePictureButtonPressed() {
@@ -1053,6 +1262,105 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   }
 }
 
+class _ZoomButton extends StatelessWidget {
+  const _ZoomButton({
+    required this.label,
+    required this.selected,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Material(
+        color: selected ? Colors.white : Colors.white.withValues(alpha: 0.12),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: enabled ? onPressed : null,
+          child: SizedBox.square(
+            dimension: selected ? 34 : 30,
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.black : Colors.white,
+                  fontSize: selected ? 12 : 11,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const <FontFeature>[
+                    FontFeature.tabularFigures(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CameraChoiceButton extends StatelessWidget {
+  const _CameraChoiceButton({
+    required this.cameraChoice,
+    required this.selected,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final _CameraChoice cameraChoice;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color foregroundColor = selected ? Colors.deepPurple : Colors.black54;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: enabled ? onPressed : null,
+        child: SizedBox(
+          width: 56,
+          height: 60,
+          child: Opacity(
+            opacity: enabled ? 1 : 0.38,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Icon(
+                  getCameraLensIcon(cameraChoice.description.lensDirection),
+                  color: foregroundColor,
+                  size: selected ? 28 : 24,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  cameraChoice.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: foregroundColor,
+                    fontSize: 9,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// CameraApp is the Main Application.
 class CameraApp extends StatelessWidget {
   /// Default Constructor
@@ -1064,15 +1372,105 @@ class CameraApp extends StatelessWidget {
   }
 }
 
-List<CameraDescription> _cameras = <CameraDescription>[];
+class _CameraChoice {
+  const _CameraChoice({required this.description, required this.label});
+
+  final CameraDescription description;
+  final String label;
+}
+
+List<_CameraChoice> _cameraChoices = <_CameraChoice>[];
 
 Future<void> main() async {
   // Fetch the available cameras before initializing the app.
   try {
     WidgetsFlutterBinding.ensureInitialized();
-    _cameras = await CameraPlatform.instance.availableCameras();
+    _cameraChoices = await _loadCameraChoices();
   } on CameraException catch (e) {
     _logError(e.code, e.description);
   }
   runApp(const CameraApp());
+}
+
+Future<List<_CameraChoice>> _loadCameraChoices() async {
+  final CameraPlatform platform = CameraPlatform.instance;
+  if (platform is AVFoundationCamera) {
+    final List<AVFoundationCameraDevice> devices = await platform
+        .getAvailableCameraDevices();
+    if (devices.isNotEmpty) {
+      devices.sort(_compareAVFoundationCameraDevices);
+      return devices.map((AVFoundationCameraDevice device) {
+        return _CameraChoice(
+          description: device.toCameraDescription(),
+          label: _avFoundationCameraDeviceLabel(device),
+        );
+      }).toList();
+    }
+  }
+
+  final List<CameraDescription> cameras = await platform.availableCameras();
+  return cameras.map((CameraDescription description) {
+    return _CameraChoice(
+      description: description,
+      label: description.lensType.name,
+    );
+  }).toList();
+}
+
+int _compareAVFoundationCameraDevices(
+  AVFoundationCameraDevice first,
+  AVFoundationCameraDevice second,
+) {
+  final int directionComparison = first.lensDirection.index.compareTo(
+    second.lensDirection.index,
+  );
+  if (directionComparison != 0) {
+    return directionComparison;
+  }
+  return _avFoundationCameraDevicePriority(
+    first,
+  ).compareTo(_avFoundationCameraDevicePriority(second));
+}
+
+int _avFoundationCameraDevicePriority(AVFoundationCameraDevice device) {
+  switch (device.deviceType) {
+    case AVFoundationCaptureDeviceType.builtInTripleCamera:
+      return 0;
+    case AVFoundationCaptureDeviceType.builtInDualWideCamera:
+      return 1;
+    case AVFoundationCaptureDeviceType.builtInDualCamera:
+      return 2;
+    case AVFoundationCaptureDeviceType.builtInWideAngleCamera:
+      return 3;
+    case AVFoundationCaptureDeviceType.builtInUltraWideCamera:
+      return 4;
+    case AVFoundationCaptureDeviceType.builtInTelephotoCamera:
+      return 5;
+    case AVFoundationCaptureDeviceType.builtInTrueDepthCamera:
+      return 6;
+    case AVFoundationCaptureDeviceType.unknown:
+      return 7;
+  }
+}
+
+String _avFoundationCameraDeviceLabel(AVFoundationCameraDevice device) {
+  final prefix = device.isVirtualDevice ? 'virtual ' : '';
+  switch (device.deviceType) {
+    case AVFoundationCaptureDeviceType.builtInTripleCamera:
+      return '${prefix}triple';
+    case AVFoundationCaptureDeviceType.builtInDualWideCamera:
+      return '${prefix}dual-wide';
+    case AVFoundationCaptureDeviceType.builtInDualCamera:
+      return '${prefix}dual';
+    case AVFoundationCaptureDeviceType.builtInWideAngleCamera:
+      return 'wide';
+    case AVFoundationCaptureDeviceType.builtInUltraWideCamera:
+      return 'ultra-wide';
+    case AVFoundationCaptureDeviceType.builtInTelephotoCamera:
+      return 'tele';
+    case AVFoundationCaptureDeviceType.builtInTrueDepthCamera:
+      return 'true-depth';
+    case AVFoundationCaptureDeviceType.unknown:
+      return 'unknown';
+  }
 }

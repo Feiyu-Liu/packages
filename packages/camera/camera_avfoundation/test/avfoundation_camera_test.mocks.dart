@@ -22,6 +22,13 @@ import 'package:mockito/src/dummies.dart' as _i3;
 // ignore_for_file: unnecessary_parenthesis
 // ignore_for_file: camel_case_types
 // ignore_for_file: subtype_of_sealed_class
+// ignore_for_file: invalid_use_of_internal_member
+
+class _FakePlatformZoomCapabilities_0 extends _i1.SmartFake
+    implements _i2.PlatformZoomCapabilities {
+  _FakePlatformZoomCapabilities_0(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
+}
 
 /// A class which mocks [CameraApi].
 ///
@@ -55,6 +62,20 @@ class MockCameraApi extends _i1.Mock implements _i2.CameraApi {
                 ),
           )
           as _i4.Future<List<_i2.PlatformCameraDescription>>);
+
+  @override
+  _i4.Future<List<_i2.PlatformCameraDevice>> getAvailableCameraDevices() =>
+      (super.noSuchMethod(
+            Invocation.method(#getAvailableCameraDevices, []),
+            returnValue: _i4.Future<List<_i2.PlatformCameraDevice>>.value(
+              <_i2.PlatformCameraDevice>[],
+            ),
+            returnValueForMissingStub:
+                _i4.Future<List<_i2.PlatformCameraDevice>>.value(
+                  <_i2.PlatformCameraDevice>[],
+                ),
+          )
+          as _i4.Future<List<_i2.PlatformCameraDevice>>);
 
   @override
   _i4.Future<int> create(
@@ -298,6 +319,48 @@ class MockCameraApi extends _i1.Mock implements _i2.CameraApi {
   _i4.Future<void> setZoomLevel(double? zoom) =>
       (super.noSuchMethod(
             Invocation.method(#setZoomLevel, [zoom]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
+  _i4.Future<_i2.PlatformZoomCapabilities> getZoomCapabilities() =>
+      (super.noSuchMethod(
+            Invocation.method(#getZoomCapabilities, []),
+            returnValue: _i4.Future<_i2.PlatformZoomCapabilities>.value(
+              _FakePlatformZoomCapabilities_0(
+                this,
+                Invocation.method(#getZoomCapabilities, []),
+              ),
+            ),
+            returnValueForMissingStub:
+                _i4.Future<_i2.PlatformZoomCapabilities>.value(
+                  _FakePlatformZoomCapabilities_0(
+                    this,
+                    Invocation.method(#getZoomCapabilities, []),
+                  ),
+                ),
+          )
+          as _i4.Future<_i2.PlatformZoomCapabilities>);
+
+  @override
+  _i4.Future<double> getCurrentZoomFactor() =>
+      (super.noSuchMethod(
+            Invocation.method(#getCurrentZoomFactor, []),
+            returnValue: _i4.Future<double>.value(0.0),
+            returnValueForMissingStub: _i4.Future<double>.value(0.0),
+          )
+          as _i4.Future<double>);
+
+  @override
+  _i4.Future<void> setZoomFactor(
+    double? zoomFactor,
+    bool? animated,
+    double? rate,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#setZoomFactor, [zoomFactor, animated, rate]),
             returnValue: _i4.Future<void>.value(),
             returnValueForMissingStub: _i4.Future<void>.value(),
           )

@@ -14,6 +14,10 @@ final class MockCamera: NSObject, Camera {
   var getMaximumExposureOffsetStub: (() -> CGFloat)?
   var getMinimumAvailableZoomFactorStub: (() -> CGFloat)?
   var getMaximumAvailableZoomFactorStub: (() -> CGFloat)?
+  var getZoomCapabilitiesStub: (() -> PlatformZoomCapabilities)?
+  var getCurrentZoomFactorStub: (() -> CGFloat)?
+  var getIsRampingVideoZoomStub: (() -> Bool)?
+  var setOnZoomFactorChangedStub: ((((CGFloat, Bool) -> Void)?) -> Void)?
   var setUpCaptureSessionForAudioIfNeededStub: (() -> Void)?
   var receivedImageStreamDataStub: (() -> Void)?
   var startStub: (() -> Void)?
@@ -33,6 +37,7 @@ final class MockCamera: NSObject, Camera {
   var setFocusModeStub: ((PlatformFocusMode) -> Void)?
   var setFocusPointStub: ((PlatformPoint?, @escaping (Result<Void, any Error>) -> Void) -> Void)?
   var setZoomLevelStub: ((CGFloat, @escaping (Result<Void, any Error>) -> Void) -> Void)?
+  var setZoomFactorStub: ((CGFloat, Bool, Float, @escaping (Result<Void, any Error>) -> Void) -> Void)?
   var setFlashModeStub: ((PlatformFlashMode, @escaping (Result<Void, any Error>) -> Void) -> Void)?
   var pausePreviewStub: (() -> Void)?
   var resumePreviewStub: (() -> Void)?
@@ -91,6 +96,36 @@ final class MockCamera: NSObject, Camera {
 
   var maximumAvailableZoomFactor: CGFloat {
     return getMaximumAvailableZoomFactorStub?() ?? 0
+  }
+
+  var zoomCapabilities: PlatformZoomCapabilities {
+    return getZoomCapabilitiesStub?()
+      ?? PlatformZoomCapabilities(
+        minZoomFactor: 0,
+        maxZoomFactor: 0,
+        currentZoomFactor: 0,
+        displayZoomFactorMultiplier: 1,
+        virtualDeviceSwitchOverZoomFactors: [],
+        secondaryNativeResolutionZoomFactors: [],
+        isVirtualDevice: false,
+        constituentDevices: [])
+  }
+
+  var currentZoomFactor: CGFloat {
+    return getCurrentZoomFactorStub?() ?? 0
+  }
+
+  var isRampingVideoZoom: Bool {
+    return getIsRampingVideoZoomStub?() ?? false
+  }
+
+  var onZoomFactorChanged: ((CGFloat, Bool) -> Void)? {
+    get {
+      preconditionFailure("Attempted to access unimplemented property: onZoomFactorChanged")
+    }
+    set {
+      setOnZoomFactorChangedStub?(newValue)
+    }
   }
 
   func setUpCaptureSessionForAudioIfNeeded() {
@@ -173,6 +208,15 @@ final class MockCamera: NSObject, Camera {
     withCompletion completion: @escaping (Result<Void, any Error>) -> Void
   ) {
     setZoomLevelStub?(zoom, completion)
+  }
+
+  func setZoomFactor(
+    _ zoomFactor: CGFloat,
+    animated: Bool,
+    rate: Float,
+    withCompletion completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
+    setZoomFactorStub?(zoomFactor, animated, rate, completion)
   }
 
   func setFlashMode(

@@ -135,4 +135,59 @@ final class AvailableCamerasTest: XCTestCase {
 
     XCTAssertEqual(resultValue?.first?.lensDirection, .external)
   }
+
+  func testAvailableCameraDevicesShouldReturnVirtualCameraMetadata() {
+    let mockDeviceDiscoverer = MockCameraDeviceDiscoverer()
+    let cameraPlugin = createCameraPlugin(with: mockDeviceDiscoverer)
+    let expectation = self.expectation(description: "Result finished")
+
+    mockDeviceDiscoverer.discoverySessionStub = { deviceTypes, mediaType, position in
+      let wideAngleCamera = MockCaptureDevice()
+      wideAngleCamera.uniqueID = "wide"
+      wideAngleCamera.position = .back
+      wideAngleCamera.deviceType = .builtInWideAngleCamera
+
+      let telephotoCamera = MockCaptureDevice()
+      telephotoCamera.uniqueID = "tele"
+      telephotoCamera.position = .back
+      telephotoCamera.deviceType = .builtInTelephotoCamera
+
+      let tripleCamera = MockCaptureDevice()
+      tripleCamera.uniqueID = "triple"
+      tripleCamera.position = .back
+      tripleCamera.deviceType = .builtInTripleCamera
+      tripleCamera.isVirtualDevice = true
+      tripleCamera.flutterConstituentDevices = [wideAngleCamera, telephotoCamera]
+
+      let requiredTypes: [AVCaptureDevice.DeviceType] = [
+        .builtInWideAngleCamera,
+        .builtInTelephotoCamera,
+        .builtInUltraWideCamera,
+        .builtInDualCamera,
+        .builtInDualWideCamera,
+        .builtInTripleCamera,
+        .builtInTrueDepthCamera,
+      ]
+
+      XCTAssertEqual(deviceTypes, requiredTypes)
+      XCTAssertEqual(mediaType, .video)
+      XCTAssertEqual(position, .unspecified)
+      return [tripleCamera]
+    }
+
+    var resultValue: [PlatformCameraDevice]?
+    cameraPlugin.getAvailableCameraDevices { result in
+      resultValue = self.assertSuccess(result)
+      expectation.fulfill()
+    }
+    waitForExpectations(timeout: 30, handler: nil)
+
+    XCTAssertEqual(resultValue?.count, 1)
+    XCTAssertEqual(resultValue?.first?.name, "triple")
+    XCTAssertEqual(resultValue?.first?.deviceType, .builtInTripleCamera)
+    XCTAssertEqual(resultValue?.first?.lensType, .wide)
+    XCTAssertEqual(resultValue?.first?.isVirtualDevice, true)
+    XCTAssertEqual(resultValue?.first?.constituentDevices.count, 2)
+    XCTAssertEqual(resultValue?.first?.constituentDevices.first?.name, "wide")
+  }
 }

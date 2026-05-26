@@ -39,6 +39,18 @@ enum PlatformCameraLensType {
   unknown,
 }
 
+// Pigeon version of AVFoundation device type.
+enum PlatformCaptureDeviceType {
+  builtInWideAngleCamera,
+  builtInTelephotoCamera,
+  builtInUltraWideCamera,
+  builtInDualCamera,
+  builtInDualWideCamera,
+  builtInTripleCamera,
+  builtInTrueDepthCamera,
+  unknown,
+}
+
 // Pigeon version of DeviceOrientation.
 enum PlatformDeviceOrientation {
   portraitUp,
@@ -88,6 +100,96 @@ class PlatformCameraDescription {
 
   /// The type of the camera lens.
   final PlatformCameraLensType lensType;
+}
+
+// Pigeon version of an AVCaptureDevice's physical constituent device.
+class PlatformConstituentDevice {
+  PlatformConstituentDevice({
+    required this.name,
+    required this.lensDirection,
+    required this.lensType,
+    required this.deviceType,
+  });
+
+  /// The unique ID of the device.
+  final String name;
+
+  /// The direction the camera is facing.
+  final PlatformCameraLensDirection lensDirection;
+
+  /// The type of lens the camera has.
+  final PlatformCameraLensType lensType;
+
+  /// The AVFoundation device type.
+  final PlatformCaptureDeviceType deviceType;
+}
+
+// Pigeon version of an AVCaptureDevice with AVFoundation-specific metadata.
+class PlatformCameraDevice {
+  PlatformCameraDevice({
+    required this.name,
+    required this.lensDirection,
+    required this.lensType,
+    required this.deviceType,
+    required this.isVirtualDevice,
+    required this.constituentDevices,
+  });
+
+  /// The unique ID of the device.
+  final String name;
+
+  /// The direction the camera is facing.
+  final PlatformCameraLensDirection lensDirection;
+
+  /// The type of lens the camera has.
+  final PlatformCameraLensType lensType;
+
+  /// The AVFoundation device type.
+  final PlatformCaptureDeviceType deviceType;
+
+  /// Whether this device is an AVFoundation virtual device.
+  final bool isVirtualDevice;
+
+  /// Physical devices that make up this virtual device.
+  final List<PlatformConstituentDevice> constituentDevices;
+}
+
+// Pigeon version of AVFoundation zoom capabilities.
+class PlatformZoomCapabilities {
+  PlatformZoomCapabilities({
+    required this.minZoomFactor,
+    required this.maxZoomFactor,
+    required this.currentZoomFactor,
+    required this.displayZoomFactorMultiplier,
+    required this.virtualDeviceSwitchOverZoomFactors,
+    required this.secondaryNativeResolutionZoomFactors,
+    required this.isVirtualDevice,
+    required this.constituentDevices,
+  });
+
+  /// The minimum supported raw AVCaptureDevice videoZoomFactor.
+  final double minZoomFactor;
+
+  /// The maximum supported raw AVCaptureDevice videoZoomFactor.
+  final double maxZoomFactor;
+
+  /// The current raw AVCaptureDevice videoZoomFactor.
+  final double currentZoomFactor;
+
+  /// Multiplier for converting raw zoom to a display zoom factor.
+  final double displayZoomFactorMultiplier;
+
+  /// Raw zoom factors where a virtual device may switch physical lenses.
+  final List<double> virtualDeviceSwitchOverZoomFactors;
+
+  /// Raw zoom factors where the active format can use secondary native resolution modes.
+  final List<double> secondaryNativeResolutionZoomFactors;
+
+  /// Whether this device is an AVFoundation virtual device.
+  final bool isVirtualDevice;
+
+  /// Physical devices that make up this virtual device.
+  final List<PlatformConstituentDevice> constituentDevices;
 }
 
 // Pigeon version of the data needed for a CameraInitializedEvent.
@@ -193,6 +295,10 @@ abstract class CameraApi {
   @async
   @ObjCSelector('availableCamerasWithCompletion')
   List<PlatformCameraDescription> getAvailableCameras();
+
+  /// Returns AVFoundation-specific camera devices, including virtual devices.
+  @async
+  List<PlatformCameraDevice> getAvailableCameraDevices();
 
   /// Create a new camera with the given settings, and returns its ID.
   @async
@@ -321,6 +427,18 @@ abstract class CameraApi {
   @ObjCSelector('setZoomLevel:')
   void setZoomLevel(double zoom);
 
+  /// Returns AVFoundation-specific zoom capabilities for the active camera.
+  @async
+  PlatformZoomCapabilities getZoomCapabilities();
+
+  /// Returns the current raw AVCaptureDevice videoZoomFactor.
+  @async
+  double getCurrentZoomFactor();
+
+  /// Sets the current raw AVCaptureDevice videoZoomFactor.
+  @async
+  void setZoomFactor(double zoomFactor, bool animated, double rate);
+
   /// Sets the video stabilization mode.
   @async
   @ObjCSelector('setVideoStabilizationMode:')
@@ -378,4 +496,7 @@ abstract class CameraEventApi {
   /// handling a specific HostApi call, such as during streaming.
   @ObjCSelector('reportError:')
   void error(String message);
+
+  /// Called when the camera zoom factor changes.
+  void zoomFactorChanged(double zoomFactor, bool isRamping);
 }

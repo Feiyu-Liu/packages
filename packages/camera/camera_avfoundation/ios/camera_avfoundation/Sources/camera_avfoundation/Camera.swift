@@ -26,6 +26,10 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
 
   var minimumAvailableZoomFactor: CGFloat { get }
   var maximumAvailableZoomFactor: CGFloat { get }
+  var zoomCapabilities: PlatformZoomCapabilities { get }
+  var currentZoomFactor: CGFloat { get }
+  var isRampingVideoZoom: Bool { get }
+  var onZoomFactorChanged: ((CGFloat, Bool) -> Void)? { get set }
   var minimumExposureOffset: CGFloat { get }
   var maximumExposureOffset: CGFloat { get }
 
@@ -96,6 +100,11 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
   )
 
   func setZoomLevel(_ zoom: CGFloat, withCompletion: @escaping (Result<Void, any Error>) -> Void)
+  func setZoomFactor(
+    _ zoomFactor: CGFloat,
+    animated: Bool,
+    rate: Float,
+    withCompletion: @escaping (Result<Void, any Error>) -> Void)
 
   func setVideoStabilizationMode(
     _ mode: PlatformVideoStabilizationMode,

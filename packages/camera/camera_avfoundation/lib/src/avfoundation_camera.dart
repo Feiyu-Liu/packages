@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_transform/stream_transform.dart';
 
+import 'avfoundation_types.dart';
 import 'messages.g.dart';
 import 'type_conversion.dart';
 import 'utils.dart';
@@ -63,6 +64,17 @@ class AVFoundationCamera extends CameraPlatform {
   Stream<CameraEvent> _cameraEvents(int cameraId) => cameraEventStreamController
       .stream
       .where((CameraEvent event) => event.cameraId == cameraId);
+
+  /// Returns AVFoundation-specific camera devices, including virtual devices.
+  Future<List<AVFoundationCameraDevice>> getAvailableCameraDevices() async {
+    try {
+      return (await _hostApi.getAvailableCameraDevices())
+          .map(avFoundationCameraDeviceFromPlatform)
+          .toList();
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
 
   @override
   Future<List<CameraDescription>> availableCameras() async {
@@ -375,6 +387,43 @@ class AVFoundationCamera extends CameraPlatform {
     }
   }
 
+  /// Returns AVFoundation-specific zoom capabilities for the active camera.
+  Future<AVFoundationZoomCapabilities> getZoomCapabilities(int cameraId) async {
+    try {
+      return zoomCapabilitiesFromPlatform(await _hostApi.getZoomCapabilities());
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Returns the current raw `AVCaptureDevice.videoZoomFactor`.
+  Future<double> getCurrentZoomFactor(int cameraId) async {
+    try {
+      return _hostApi.getCurrentZoomFactor();
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Sets the current raw `AVCaptureDevice.videoZoomFactor`.
+  Future<void> setZoomFactor(
+    int cameraId,
+    double zoomFactor, {
+    bool animated = false,
+    double rate = 5.0,
+  }) async {
+    try {
+      await _hostApi.setZoomFactor(zoomFactor, animated, rate);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Emits raw AVFoundation zoom factor changes for [cameraId].
+  Stream<AVFoundationZoomChangedEvent> onZoomFactorChanged(int cameraId) {
+    return _cameraEvents(cameraId).whereType<AVFoundationZoomChangedEvent>();
+  }
+
   @override
   Future<void> setVideoStabilizationMode(
     int cameraId,
@@ -658,6 +707,13 @@ class HostCameraMessageHandler implements CameraEventApi {
   @override
   void error(String message) {
     streamController.add(CameraErrorEvent(cameraId, message));
+  }
+
+  @override
+  void zoomFactorChanged(double zoomFactor, bool isRamping) {
+    streamController.add(
+      AVFoundationZoomChangedEvent(cameraId, zoomFactor, isRamping),
+    );
   }
 
   @override

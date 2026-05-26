@@ -24,6 +24,23 @@ final class DefaultCamera: NSObject, Camera {
   var maximumExposureOffset: CGFloat { CGFloat(captureDevice.maxExposureTargetBias) }
   var minimumAvailableZoomFactor: CGFloat { captureDevice.minAvailableVideoZoomFactor }
   var maximumAvailableZoomFactor: CGFloat { captureDevice.maxAvailableVideoZoomFactor }
+  var currentZoomFactor: CGFloat { captureDevice.videoZoomFactor }
+  var isRampingVideoZoom: Bool { captureDevice.isRampingVideoZoom }
+  var zoomCapabilities: PlatformZoomCapabilities {
+    PlatformZoomCapabilities(
+      minZoomFactor: captureDevice.minAvailableVideoZoomFactor,
+      maxZoomFactor: captureDevice.maxAvailableVideoZoomFactor,
+      currentZoomFactor: captureDevice.videoZoomFactor,
+      displayZoomFactorMultiplier: captureDevice.flutterDisplayVideoZoomFactorMultiplier,
+      virtualDeviceSwitchOverZoomFactors: captureDevice.virtualDeviceSwitchOverVideoZoomFactors
+        .map { $0.doubleValue },
+      secondaryNativeResolutionZoomFactors: captureDevice.flutterSecondaryNativeResolutionZoomFactors
+        .map { Double($0) },
+      isVirtualDevice: captureDevice.isVirtualDevice,
+      constituentDevices: captureDevice.flutterConstituentDevices.map(Self.platformConstituentDevice)
+    )
+  }
+  var onZoomFactorChanged: ((CGFloat, Bool) -> Void)?
 
   /// The queue on which `latestPixelBuffer` property is accessed.
   /// To avoid unnecessary contention, do not access `latestPixelBuffer` on the `captureSessionQueue`.
@@ -57,6 +74,9 @@ final class DefaultCamera: NSObject, Camera {
 
   private let deviceOrientationProvider: DeviceOrientationProvider
   private let motionManager = CMMotionManager()
+  private var zoomObserverTimer: DispatchSourceTimer?
+  private var lastNotifiedZoomFactor: CGFloat?
+  private var lastNotifiedZoomRamping: Bool?
 
   private(set) var captureDevice: CaptureDevice
   // Setter exposed for tests.
@@ -131,6 +151,64 @@ final class DefaultCamera: NSObject, Camera {
       code: "Error \(error.code)",
       message: error.localizedDescription,
       details: error.domain)
+  }
+
+  static func platformConstituentDevice(_ device: CaptureDevice) -> PlatformConstituentDevice {
+    return PlatformConstituentDevice(
+      name: device.uniqueID,
+      lensDirection: platformLensDirection(for: device),
+      lensType: platformLensType(for: device),
+      deviceType: platformCaptureDeviceType(for: device)
+    )
+  }
+
+  static func platformLensDirection(for device: CaptureDevice) -> PlatformCameraLensDirection {
+    switch device.position {
+    case .back:
+      return .back
+    case .front:
+      return .front
+    case .unspecified:
+      return .external
+    @unknown default:
+      return .external
+    }
+  }
+
+  static func platformLensType(for device: CaptureDevice) -> PlatformCameraLensType {
+    switch device.deviceType {
+    case .builtInWideAngleCamera:
+      return .wide
+    case .builtInTelephotoCamera:
+      return .telephoto
+    case .builtInUltraWideCamera:
+      return .ultraWide
+    case .builtInDualCamera, .builtInDualWideCamera, .builtInTripleCamera:
+      return .wide
+    default:
+      return .unknown
+    }
+  }
+
+  static func platformCaptureDeviceType(for device: CaptureDevice) -> PlatformCaptureDeviceType {
+    switch device.deviceType {
+    case .builtInWideAngleCamera:
+      return .builtInWideAngleCamera
+    case .builtInTelephotoCamera:
+      return .builtInTelephotoCamera
+    case .builtInUltraWideCamera:
+      return .builtInUltraWideCamera
+    case .builtInDualCamera:
+      return .builtInDualCamera
+    case .builtInDualWideCamera:
+      return .builtInDualWideCamera
+    case .builtInTripleCamera:
+      return .builtInTripleCamera
+    case .builtInTrueDepthCamera:
+      return .builtInTrueDepthCamera
+    default:
+      return .unknown
+    }
   }
 
   private static func createConnection(
@@ -499,8 +577,48 @@ final class DefaultCamera: NSObject, Camera {
   }
 
   func stop() {
+    stopZoomObserver()
     videoCaptureSession.stopRunning()
     audioCaptureSession.stopRunning()
+  }
+
+  private func startZoomObserver() {
+    guard zoomObserverTimer == nil else {
+      return
+    }
+
+    let timer = DispatchSource.makeTimerSource(queue: captureSessionQueue)
+    timer.schedule(deadline: .now(), repeating: .milliseconds(33))
+    timer.setEventHandler { [weak self] in
+      self?.notifyZoomFactorIfNeeded()
+    }
+    zoomObserverTimer = timer
+    timer.resume()
+  }
+
+  private func stopZoomObserver() {
+    zoomObserverTimer?.cancel()
+    zoomObserverTimer = nil
+    lastNotifiedZoomFactor = nil
+    lastNotifiedZoomRamping = nil
+  }
+
+  private func notifyZoomFactorIfNeeded(force: Bool = false) {
+    let zoomFactor = captureDevice.videoZoomFactor
+    let isRamping = captureDevice.isRampingVideoZoom
+
+    if !force,
+      let lastZoomFactor = lastNotifiedZoomFactor,
+      let lastIsRamping = lastNotifiedZoomRamping,
+      abs(lastZoomFactor - zoomFactor) < 0.0001,
+      lastIsRamping == isRamping
+    {
+      return
+    }
+
+    lastNotifiedZoomFactor = zoomFactor
+    lastNotifiedZoomRamping = isRamping
+    onZoomFactorChanged?(zoomFactor, isRamping)
   }
 
   func startVideoRecording(
@@ -984,8 +1102,17 @@ final class DefaultCamera: NSObject, Camera {
   func setZoomLevel(
     _ zoom: CGFloat, withCompletion completion: @escaping (Result<Void, any Error>) -> Void
   ) {
-    if zoom < captureDevice.minAvailableVideoZoomFactor
-      || zoom > captureDevice.maxAvailableVideoZoomFactor
+    setZoomFactor(zoom, animated: false, rate: 0, withCompletion: completion)
+  }
+
+  func setZoomFactor(
+    _ zoomFactor: CGFloat,
+    animated: Bool,
+    rate: Float,
+    withCompletion completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
+    if zoomFactor < captureDevice.minAvailableVideoZoomFactor
+      || zoomFactor > captureDevice.maxAvailableVideoZoomFactor
     {
       completion(
         .failure(
@@ -997,6 +1124,16 @@ final class DefaultCamera: NSObject, Camera {
       return
     }
 
+    if animated && rate <= 0 {
+      completion(
+        .failure(
+          PigeonError(
+            code: "ZOOM_ERROR",
+            message: "Zoom ramp rate must be greater than zero.",
+            details: nil)))
+      return
+    }
+
     do {
       try captureDevice.lockForConfiguration()
     } catch let error as NSError {
@@ -1004,8 +1141,14 @@ final class DefaultCamera: NSObject, Camera {
       return
     }
 
-    captureDevice.videoZoomFactor = zoom
+    if animated {
+      captureDevice.ramp(toVideoZoomFactor: zoomFactor, withRate: rate)
+    } else {
+      captureDevice.cancelVideoZoomRamp()
+      captureDevice.videoZoomFactor = zoomFactor
+    }
     captureDevice.unlockForConfiguration()
+    notifyZoomFactorIfNeeded(force: true)
     completion(.success(()))
   }
 
