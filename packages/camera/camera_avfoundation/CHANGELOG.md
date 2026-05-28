@@ -1,6 +1,8 @@
 ## NEXT
 
 * Updates minimum supported SDK version to Flutter 3.38/Dart 3.10.
+* Adds `AVFoundationZoomCapabilities.recommendedMaxZoomFactor`, sourced from
+  `AVCaptureDevice.Format.systemRecommendedVideoZoomRange` when available.
 
 ## 0.10.1
 
