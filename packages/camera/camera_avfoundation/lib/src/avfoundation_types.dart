@@ -140,6 +140,7 @@ class AVFoundationZoomCapabilities {
   const AVFoundationZoomCapabilities({
     required this.minZoomFactor,
     required this.maxZoomFactor,
+    required this.recommendedMaxZoomFactor,
     required this.currentZoomFactor,
     required this.displayZoomFactorMultiplier,
     required this.virtualDeviceSwitchOverZoomFactors,
@@ -153,6 +154,13 @@ class AVFoundationZoomCapabilities {
 
   /// The maximum supported raw `AVCaptureDevice.videoZoomFactor`.
   final double maxZoomFactor;
+
+  /// The system-recommended maximum raw `AVCaptureDevice.videoZoomFactor`.
+  ///
+  /// This is based on `AVCaptureDevice.Format.systemRecommendedVideoZoomRange`
+  /// when the platform provides it. It is null when no recommendation is
+  /// available.
+  final double? recommendedMaxZoomFactor;
 
   /// The current raw `AVCaptureDevice.videoZoomFactor`.
   final double currentZoomFactor;
@@ -179,6 +187,7 @@ class AVFoundationZoomCapabilities {
           runtimeType == other.runtimeType &&
           minZoomFactor == other.minZoomFactor &&
           maxZoomFactor == other.maxZoomFactor &&
+          recommendedMaxZoomFactor == other.recommendedMaxZoomFactor &&
           currentZoomFactor == other.currentZoomFactor &&
           displayZoomFactorMultiplier == other.displayZoomFactorMultiplier &&
           listEquals(
@@ -196,6 +205,7 @@ class AVFoundationZoomCapabilities {
   int get hashCode => Object.hash(
     minZoomFactor,
     maxZoomFactor,
+    recommendedMaxZoomFactor,
     currentZoomFactor,
     displayZoomFactorMultiplier,
     Object.hashAll(virtualDeviceSwitchOverZoomFactors),

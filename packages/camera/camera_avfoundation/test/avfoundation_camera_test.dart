@@ -729,6 +729,7 @@ void main() {
         (_) async => PlatformZoomCapabilities(
           minZoomFactor: 0.5,
           maxZoomFactor: 15,
+          recommendedMaxZoomFactor: 10,
           currentZoomFactor: 2,
           displayZoomFactorMultiplier: 0.5,
           virtualDeviceSwitchOverZoomFactors: <double>[1, 3],
@@ -750,6 +751,7 @@ void main() {
 
       expect(capabilities.minZoomFactor, 0.5);
       expect(capabilities.maxZoomFactor, 15);
+      expect(capabilities.recommendedMaxZoomFactor, 10);
       expect(capabilities.currentZoomFactor, 2);
       expect(capabilities.displayZoomFactorMultiplier, 0.5);
       expect(capabilities.virtualDeviceSwitchOverZoomFactors, <double>[1, 3]);

@@ -159,6 +159,7 @@ class PlatformZoomCapabilities {
   PlatformZoomCapabilities({
     required this.minZoomFactor,
     required this.maxZoomFactor,
+    required this.recommendedMaxZoomFactor,
     required this.currentZoomFactor,
     required this.displayZoomFactorMultiplier,
     required this.virtualDeviceSwitchOverZoomFactors,
@@ -172,6 +173,9 @@ class PlatformZoomCapabilities {
 
   /// The maximum supported raw AVCaptureDevice videoZoomFactor.
   final double maxZoomFactor;
+
+  /// The system-recommended maximum raw AVCaptureDevice videoZoomFactor.
+  final double? recommendedMaxZoomFactor;
 
   /// The current raw AVCaptureDevice videoZoomFactor.
   final double currentZoomFactor;

@@ -30,6 +30,7 @@ final class DefaultCamera: NSObject, Camera {
     PlatformZoomCapabilities(
       minZoomFactor: captureDevice.minAvailableVideoZoomFactor,
       maxZoomFactor: captureDevice.maxAvailableVideoZoomFactor,
+      recommendedMaxZoomFactor: captureDevice.flutterRecommendedMaxZoomFactor.map { Double($0) },
       currentZoomFactor: captureDevice.videoZoomFactor,
       displayZoomFactorMultiplier: captureDevice.flutterDisplayVideoZoomFactorMultiplier,
       virtualDeviceSwitchOverZoomFactors: captureDevice.virtualDeviceSwitchOverVideoZoomFactors

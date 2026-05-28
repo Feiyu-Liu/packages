@@ -100,6 +100,7 @@ AVFoundationZoomCapabilities zoomCapabilitiesFromPlatform(
   return AVFoundationZoomCapabilities(
     minZoomFactor: capabilities.minZoomFactor,
     maxZoomFactor: capabilities.maxZoomFactor,
+    recommendedMaxZoomFactor: capabilities.recommendedMaxZoomFactor,
     currentZoomFactor: capabilities.currentZoomFactor,
     displayZoomFactorMultiplier: capabilities.displayZoomFactorMultiplier,
     virtualDeviceSwitchOverZoomFactors:

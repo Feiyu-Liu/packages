@@ -57,6 +57,7 @@ protocol CaptureDevice: NSObjectProtocol {
   var virtualDeviceSwitchOverVideoZoomFactors: [NSNumber] { get }
   var flutterSecondaryNativeResolutionZoomFactors: [CGFloat] { get }
   var flutterDisplayVideoZoomFactorMultiplier: CGFloat { get }
+  var flutterRecommendedMaxZoomFactor: CGFloat? { get }
   var isRampingVideoZoom: Bool { get }
   func ramp(toVideoZoomFactor factor: CGFloat, withRate rate: Float)
   func cancelVideoZoomRamp()
@@ -119,6 +120,13 @@ extension AVCaptureDevice: CaptureDevice {
       return displayVideoZoomFactorMultiplier
     }
     return 1.0
+  }
+
+  var flutterRecommendedMaxZoomFactor: CGFloat? {
+    if #available(iOS 18.0, *) {
+      return activeFormat.systemRecommendedVideoZoomRange?.upperBound
+    }
+    return nil
   }
 
   func isVideoStabilizationModeSupported(_ videoStabilizationMode: AVCaptureVideoStabilizationMode)

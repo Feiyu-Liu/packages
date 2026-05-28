@@ -425,6 +425,8 @@ struct PlatformZoomCapabilities: Hashable {
   var minZoomFactor: Double
   /// The maximum supported raw AVCaptureDevice videoZoomFactor.
   var maxZoomFactor: Double
+  /// The system-recommended maximum raw AVCaptureDevice videoZoomFactor.
+  var recommendedMaxZoomFactor: Double? = nil
   /// The current raw AVCaptureDevice videoZoomFactor.
   var currentZoomFactor: Double
   /// Multiplier for converting raw zoom to a display zoom factor.
@@ -443,16 +445,18 @@ struct PlatformZoomCapabilities: Hashable {
   static func fromList(_ pigeonVar_list: [Any?]) -> PlatformZoomCapabilities? {
     let minZoomFactor = pigeonVar_list[0] as! Double
     let maxZoomFactor = pigeonVar_list[1] as! Double
-    let currentZoomFactor = pigeonVar_list[2] as! Double
-    let displayZoomFactorMultiplier = pigeonVar_list[3] as! Double
-    let virtualDeviceSwitchOverZoomFactors = pigeonVar_list[4] as! [Double]
-    let secondaryNativeResolutionZoomFactors = pigeonVar_list[5] as! [Double]
-    let isVirtualDevice = pigeonVar_list[6] as! Bool
-    let constituentDevices = pigeonVar_list[7] as! [PlatformConstituentDevice]
+    let recommendedMaxZoomFactor: Double? = nilOrValue(pigeonVar_list[2])
+    let currentZoomFactor = pigeonVar_list[3] as! Double
+    let displayZoomFactorMultiplier = pigeonVar_list[4] as! Double
+    let virtualDeviceSwitchOverZoomFactors = pigeonVar_list[5] as! [Double]
+    let secondaryNativeResolutionZoomFactors = pigeonVar_list[6] as! [Double]
+    let isVirtualDevice = pigeonVar_list[7] as! Bool
+    let constituentDevices = pigeonVar_list[8] as! [PlatformConstituentDevice]
 
     return PlatformZoomCapabilities(
       minZoomFactor: minZoomFactor,
       maxZoomFactor: maxZoomFactor,
+      recommendedMaxZoomFactor: recommendedMaxZoomFactor,
       currentZoomFactor: currentZoomFactor,
       displayZoomFactorMultiplier: displayZoomFactorMultiplier,
       virtualDeviceSwitchOverZoomFactors: virtualDeviceSwitchOverZoomFactors,
@@ -465,6 +469,7 @@ struct PlatformZoomCapabilities: Hashable {
     return [
       minZoomFactor,
       maxZoomFactor,
+      recommendedMaxZoomFactor,
       currentZoomFactor,
       displayZoomFactorMultiplier,
       virtualDeviceSwitchOverZoomFactors,
@@ -477,13 +482,14 @@ struct PlatformZoomCapabilities: Hashable {
     if Swift.type(of: lhs) != Swift.type(of: rhs) {
       return false
     }
-    return deepEqualsMessages(lhs.minZoomFactor, rhs.minZoomFactor) && deepEqualsMessages(lhs.maxZoomFactor, rhs.maxZoomFactor) && deepEqualsMessages(lhs.currentZoomFactor, rhs.currentZoomFactor) && deepEqualsMessages(lhs.displayZoomFactorMultiplier, rhs.displayZoomFactorMultiplier) && deepEqualsMessages(lhs.virtualDeviceSwitchOverZoomFactors, rhs.virtualDeviceSwitchOverZoomFactors) && deepEqualsMessages(lhs.secondaryNativeResolutionZoomFactors, rhs.secondaryNativeResolutionZoomFactors) && deepEqualsMessages(lhs.isVirtualDevice, rhs.isVirtualDevice) && deepEqualsMessages(lhs.constituentDevices, rhs.constituentDevices)
+    return deepEqualsMessages(lhs.minZoomFactor, rhs.minZoomFactor) && deepEqualsMessages(lhs.maxZoomFactor, rhs.maxZoomFactor) && deepEqualsMessages(lhs.recommendedMaxZoomFactor, rhs.recommendedMaxZoomFactor) && deepEqualsMessages(lhs.currentZoomFactor, rhs.currentZoomFactor) && deepEqualsMessages(lhs.displayZoomFactorMultiplier, rhs.displayZoomFactorMultiplier) && deepEqualsMessages(lhs.virtualDeviceSwitchOverZoomFactors, rhs.virtualDeviceSwitchOverZoomFactors) && deepEqualsMessages(lhs.secondaryNativeResolutionZoomFactors, rhs.secondaryNativeResolutionZoomFactors) && deepEqualsMessages(lhs.isVirtualDevice, rhs.isVirtualDevice) && deepEqualsMessages(lhs.constituentDevices, rhs.constituentDevices)
   }
 
   func hash(into hasher: inout Hasher) {
     hasher.combine("PlatformZoomCapabilities")
     deepHashMessages(value: minZoomFactor, hasher: &hasher)
     deepHashMessages(value: maxZoomFactor, hasher: &hasher)
+    deepHashMessages(value: recommendedMaxZoomFactor, hasher: &hasher)
     deepHashMessages(value: currentZoomFactor, hasher: &hasher)
     deepHashMessages(value: displayZoomFactorMultiplier, hasher: &hasher)
     deepHashMessages(value: virtualDeviceSwitchOverZoomFactors, hasher: &hasher)
