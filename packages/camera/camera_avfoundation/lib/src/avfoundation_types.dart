@@ -243,3 +243,10 @@ class AVFoundationZoomChangedEvent extends CameraEvent {
   @override
   int get hashCode => Object.hash(cameraId, zoomFactor, isRamping);
 }
+
+/// Event emitted when AVFoundation is about to capture a still photo.
+@immutable
+class AVFoundationPhotoCaptureWillCaptureEvent extends CameraEvent {
+  /// Creates a photo capture will-capture event.
+  const AVFoundationPhotoCaptureWillCaptureEvent(super.cameraId);
+}

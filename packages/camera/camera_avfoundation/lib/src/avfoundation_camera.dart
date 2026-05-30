@@ -432,6 +432,15 @@ class AVFoundationCamera extends CameraPlatform {
     return _cameraEvents(cameraId).whereType<AVFoundationZoomChangedEvent>();
   }
 
+  /// Emits when AVFoundation is about to capture a still photo for [cameraId].
+  Stream<AVFoundationPhotoCaptureWillCaptureEvent> onPhotoCaptureWillCapture(
+    int cameraId,
+  ) {
+    return _cameraEvents(
+      cameraId,
+    ).whereType<AVFoundationPhotoCaptureWillCaptureEvent>();
+  }
+
   @override
   Future<void> setVideoStabilizationMode(
     int cameraId,
@@ -722,6 +731,11 @@ class HostCameraMessageHandler implements CameraEventApi {
     streamController.add(
       AVFoundationZoomChangedEvent(cameraId, zoomFactor, isRamping),
     );
+  }
+
+  @override
+  void photoCaptureWillCapture() {
+    streamController.add(AVFoundationPhotoCaptureWillCaptureEvent(cameraId));
   }
 
   @override

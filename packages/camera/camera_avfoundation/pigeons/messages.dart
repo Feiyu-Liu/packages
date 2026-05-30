@@ -509,4 +509,7 @@ abstract class CameraEventApi {
 
   /// Called when the camera zoom factor changes.
   void zoomFactorChanged(double zoomFactor, bool isRamping);
+
+  /// Called when AVFoundation is about to capture a still photo.
+  void photoCaptureWillCapture();
 }

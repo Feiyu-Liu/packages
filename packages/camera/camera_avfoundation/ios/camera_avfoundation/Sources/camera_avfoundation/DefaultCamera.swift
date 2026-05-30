@@ -858,6 +858,9 @@ final class DefaultCamera: NSObject, Camera {
     let savePhotoDelegate = SavePhotoDelegate(
       path: path,
       ioQueue: photoIOQueue,
+      willCaptureHandler: { [weak self] in
+        self?.sendPhotoCaptureWillCapture()
+      },
       completionHandler: { [weak self] path, error in
         guard let strongSelf = self else { return }
 
@@ -880,6 +883,14 @@ final class DefaultCamera: NSObject, Camera {
       "save photo delegate references must be updated on the capture session queue")
     inProgressSavePhotoDelegates[settings.uniqueID] = savePhotoDelegate
     capturePhotoOutput.capturePhoto(with: settings, delegate: savePhotoDelegate)
+  }
+
+  private func sendPhotoCaptureWillCapture() {
+    DispatchQueue.main.async { [weak self] in
+      self?.dartAPI?.photoCaptureWillCapture { _ in
+        // Ignore errors; this is a best-effort event broadcast.
+      }
+    }
   }
 
   private func getTemporaryFilePath(

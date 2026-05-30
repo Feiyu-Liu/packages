@@ -14,6 +14,9 @@ import Foundation
 /// error - photo capture error or IO error.
 typealias SavePhotoDelegateCompletionHandler = (String?, Error?) -> Void
 
+/// Called when AVFoundation is about to capture a still photo.
+typealias SavePhotoDelegateWillCaptureHandler = () -> Void
+
 /// Delegate object that handles photo capture results.
 class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
   /// The file path for the captured photo.
@@ -24,6 +27,8 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 
   /// The completion handler block for capture and save photo operations.
   let completionHandler: SavePhotoDelegateCompletionHandler
+
+  private let willCaptureHandler: SavePhotoDelegateWillCaptureHandler?
 
   /// The path for captured photo file.
   /// Exposed for unit tests to verify the captured photo file path.
@@ -39,10 +44,12 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
   init(
     path: String,
     ioQueue: DispatchQueue,
+    willCaptureHandler: SavePhotoDelegateWillCaptureHandler? = nil,
     completionHandler: @escaping SavePhotoDelegateCompletionHandler
   ) {
     self.path = path
     self.ioQueue = ioQueue
+    self.willCaptureHandler = willCaptureHandler
     self.completionHandler = completionHandler
     super.init()
   }
@@ -71,6 +78,13 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
         strongSelf.completionHandler(nil, error)
       }
     }
+  }
+
+  func photoOutput(
+    _ output: AVCapturePhotoOutput,
+    willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings
+  ) {
+    willCaptureHandler?()
   }
 
   func photoOutput(

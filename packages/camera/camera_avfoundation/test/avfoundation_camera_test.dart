@@ -794,6 +794,22 @@ void main() {
     });
 
     test(
+      'Should emit AVFoundation photo capture will-capture events',
+      () async {
+        final events = StreamQueue<AVFoundationPhotoCaptureWillCaptureEvent>(
+          camera.onPhotoCaptureWillCapture(cameraId),
+        );
+
+        camera.hostCameraHandlers[cameraId]!.photoCaptureWillCapture();
+
+        final AVFoundationPhotoCaptureWillCaptureEvent event =
+            await events.next;
+        expect(event.cameraId, cameraId);
+        await events.cancel();
+      },
+    );
+
+    test(
       'Should throw CameraException when illegal zoom level is supplied',
       () async {
         const code = 'ZOOM_ERROR';
