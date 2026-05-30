@@ -384,6 +384,15 @@ extension CameraPlugin: CameraApi {
     }
   }
 
+  func setPhotoCaptureOrientation(
+    orientation: PlatformDeviceOrientation, completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setPhotoCaptureOrientation(orientation)
+      completion(.success(()))
+    }
+  }
+
   func unlockCaptureOrientation(completion: @escaping (Result<Void, any Error>) -> Void) {
     captureSessionQueue.async { [weak self] in
       self?.camera?.unlockCaptureOrientation()

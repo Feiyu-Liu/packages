@@ -952,6 +952,11 @@ final class DefaultCamera: NSObject, Camera {
     }
   }
 
+  func setPhotoCaptureOrientation(_ pigeonOrientation: PlatformDeviceOrientation) {
+    updateOrientation(
+      getUIDeviceOrientation(for: pigeonOrientation), forCaptureOutput: capturePhotoOutput)
+  }
+
   func unlockCaptureOrientation() {
     lockedCaptureOrientation = .unknown
     updateOrientation()

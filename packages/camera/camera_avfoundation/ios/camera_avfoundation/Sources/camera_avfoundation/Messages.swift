@@ -993,6 +993,9 @@ protocol CameraApi {
   func dispose(cameraId: Int64, completion: @escaping (Result<Void, Error>) -> Void)
   /// Locks the camera capture to the current device orientation.
   func lockCaptureOrientation(orientation: PlatformDeviceOrientation, completion: @escaping (Result<Void, Error>) -> Void)
+  /// Sets the still photo capture orientation without changing the preview or
+  /// video output orientation.
+  func setPhotoCaptureOrientation(orientation: PlatformDeviceOrientation, completion: @escaping (Result<Void, Error>) -> Void)
   /// Unlocks camera capture orientation, allowing it to automatically adapt to
   /// device orientation.
   func unlockCaptureOrientation(completion: @escaping (Result<Void, Error>) -> Void)
@@ -1221,6 +1224,25 @@ class CameraApiSetup {
       }
     } else {
       lockCaptureOrientationChannel.setMessageHandler(nil)
+    }
+    /// Sets the still photo capture orientation without changing the preview or
+    /// video output orientation.
+    let setPhotoCaptureOrientationChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.camera_avfoundation.CameraApi.setPhotoCaptureOrientation\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      setPhotoCaptureOrientationChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let orientationArg = args[0] as! PlatformDeviceOrientation
+        api.setPhotoCaptureOrientation(orientation: orientationArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      setPhotoCaptureOrientationChannel.setMessageHandler(nil)
     }
     /// Unlocks camera capture orientation, allowing it to automatically adapt to
     /// device orientation.

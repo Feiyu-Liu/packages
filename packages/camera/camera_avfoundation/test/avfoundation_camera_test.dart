@@ -1046,6 +1046,16 @@ void main() {
       );
     });
 
+    test('Should set the photo capture orientation', () async {
+      await camera.setPhotoCaptureOrientation(DeviceOrientation.landscapeLeft);
+
+      verify(
+        mockApi.setPhotoCaptureOrientation(
+          PlatformDeviceOrientation.landscapeLeft,
+        ),
+      );
+    });
+
     test('Should unlock the capture orientation', () async {
       await camera.unlockCaptureOrientation(cameraId);
 

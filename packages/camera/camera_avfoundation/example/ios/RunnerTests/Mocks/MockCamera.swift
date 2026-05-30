@@ -29,6 +29,7 @@ final class MockCamera: NSObject, Camera {
   var captureToFileStub: ((@escaping (Result<String, any Error>) -> Void) -> Void)?
   var setDeviceOrientationStub: ((UIDeviceOrientation) -> Void)?
   var lockCaptureOrientationStub: ((PlatformDeviceOrientation) -> Void)?
+  var setPhotoCaptureOrientationStub: ((PlatformDeviceOrientation) -> Void)?
   var unlockCaptureOrientationStub: (() -> Void)?
   var setImageFileFormatStub: ((PlatformImageFileFormat) -> Void)?
   var setExposureModeStub: ((PlatformExposureMode) -> Void)?
@@ -169,6 +170,10 @@ final class MockCamera: NSObject, Camera {
 
   func lockCaptureOrientation(_ orientation: PlatformDeviceOrientation) {
     lockCaptureOrientationStub?(orientation)
+  }
+
+  func setPhotoCaptureOrientation(_ orientation: PlatformDeviceOrientation) {
+    setPhotoCaptureOrientationStub?(orientation)
   }
 
   func unlockCaptureOrientation() {

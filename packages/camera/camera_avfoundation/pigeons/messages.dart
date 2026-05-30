@@ -340,6 +340,12 @@ abstract class CameraApi {
   @ObjCSelector('lockCaptureOrientation:')
   void lockCaptureOrientation(PlatformDeviceOrientation orientation);
 
+  /// Sets the still photo capture orientation without changing the preview or
+  /// video output orientation.
+  @async
+  @ObjCSelector('setPhotoCaptureOrientation:')
+  void setPhotoCaptureOrientation(PlatformDeviceOrientation orientation);
+
   /// Unlocks camera capture orientation, allowing it to automatically adapt to
   /// device orientation.
   @async

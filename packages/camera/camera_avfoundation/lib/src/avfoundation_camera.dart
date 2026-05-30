@@ -198,6 +198,14 @@ class AVFoundationCamera extends CameraPlatform {
     );
   }
 
+  /// Sets the still photo capture orientation without changing preview/video
+  /// output orientation.
+  Future<void> setPhotoCaptureOrientation(DeviceOrientation orientation) async {
+    await _hostApi.setPhotoCaptureOrientation(
+      serializeDeviceOrientation(orientation),
+    );
+  }
+
   @override
   Future<void> unlockCaptureOrientation(int cameraId) async {
     await _hostApi.unlockCaptureOrientation();

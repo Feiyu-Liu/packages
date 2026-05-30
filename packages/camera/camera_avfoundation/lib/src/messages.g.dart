@@ -1179,6 +1179,30 @@ class CameraApi {
     );
   }
 
+  /// Sets the still photo capture orientation without changing the preview or
+  /// video output orientation.
+  Future<void> setPhotoCaptureOrientation(
+    PlatformDeviceOrientation orientation,
+  ) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.camera_avfoundation.CameraApi.setPhotoCaptureOrientation$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[orientation],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
   /// Unlocks camera capture orientation, allowing it to automatically adapt to
   /// device orientation.
   Future<void> unlockCaptureOrientation() async {
