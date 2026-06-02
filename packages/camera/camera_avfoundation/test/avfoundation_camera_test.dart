@@ -1120,6 +1120,12 @@ void main() {
       verify(mockApi.setImageFileFormat(PlatformImageFileFormat.heif));
     });
 
+    test('Should set the ImageFileFormat to sdrHeif', () async {
+      await camera.setImageFileFormat(cameraId, ImageFileFormat.sdrHeif);
+
+      verify(mockApi.setImageFileFormat(PlatformImageFileFormat.sdrHeif));
+    });
+
     test('Should set the ImageFileFormat to jpeg', () async {
       await camera.setImageFileFormat(cameraId, ImageFileFormat.jpeg);
 

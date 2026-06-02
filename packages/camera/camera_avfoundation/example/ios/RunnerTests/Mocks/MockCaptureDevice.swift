@@ -63,6 +63,7 @@ class MockCaptureDevice: NSObject, CaptureDevice {
   var virtualDeviceSwitchOverVideoZoomFactors: [NSNumber] = []
   var flutterSecondaryNativeResolutionZoomFactors: [CGFloat] = []
   var flutterDisplayVideoZoomFactorMultiplier = CGFloat(1)
+  var flutterRecommendedMaxZoomFactor: CGFloat?
   var isRampingVideoZoom = false
   var videoZoomFactor: CGFloat {
     get { storedVideoZoomFactor }

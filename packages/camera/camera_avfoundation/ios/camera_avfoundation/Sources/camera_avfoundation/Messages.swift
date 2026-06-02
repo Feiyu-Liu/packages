@@ -240,6 +240,7 @@ enum PlatformFocusMode: Int {
 enum PlatformImageFileFormat: Int {
   case jpeg = 0
   case heif = 1
+  case sdrHeif = 2
 }
 
 enum PlatformImageFormatGroup: Int {

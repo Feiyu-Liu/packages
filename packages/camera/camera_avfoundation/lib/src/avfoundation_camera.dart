@@ -652,6 +652,8 @@ class AVFoundationCamera extends CameraPlatform {
     switch (format) {
       case ImageFileFormat.heif:
         return PlatformImageFileFormat.heif;
+      case ImageFileFormat.sdrHeif:
+        return PlatformImageFileFormat.sdrHeif;
       case ImageFileFormat.jpeg:
         return PlatformImageFileFormat.jpeg;
     }

@@ -69,7 +69,7 @@ enum PlatformFlashMode { off, auto, always, torch }
 enum PlatformFocusMode { auto, locked }
 
 /// Pigeon version of ImageFileFormat.
-enum PlatformImageFileFormat { jpeg, heif }
+enum PlatformImageFileFormat { jpeg, heif, sdrHeif }
 
 // Pigeon version of the subset of ImageFormatGroup supported on iOS.
 enum PlatformImageFormatGroup { bgra8888, yuv420 }

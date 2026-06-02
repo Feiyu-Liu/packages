@@ -822,22 +822,21 @@ final class DefaultCamera: NSObject, Camera {
   }
 
   func captureToFile(completion: @escaping (Result<String, any Error>) -> Void) {
-    var settings = AVCapturePhotoSettings()
-
-    if mediaSettings.resolutionPreset == .max {
-      settings.isHighResolutionPhotoEnabled = true
-    }
-
-    let fileExtension: String
-
     let isHEVCCodecAvailable = capturePhotoOutput.availablePhotoCodecTypes.contains(
       .hevc)
+    let fileExtension: String
+    var settings: AVCapturePhotoSettings
 
-    if fileFormat == .heif, isHEVCCodecAvailable {
+    if (fileFormat == .heif || fileFormat == .sdrHeif), isHEVCCodecAvailable {
       settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
       fileExtension = "heif"
     } else {
+      settings = AVCapturePhotoSettings()
       fileExtension = "jpg"
+    }
+
+    if mediaSettings.resolutionPreset == .max {
+      settings.isHighResolutionPhotoEnabled = true
     }
 
     if flashMode != .torch {
@@ -858,6 +857,7 @@ final class DefaultCamera: NSObject, Camera {
     let savePhotoDelegate = SavePhotoDelegate(
       path: path,
       ioQueue: photoIOQueue,
+      fileSaveMode: fileFormat == .sdrHeif && isHEVCCodecAvailable ? .sdrHeif : .original,
       willCaptureHandler: { [weak self] in
         self?.sendPhotoCaptureWillCapture()
       },

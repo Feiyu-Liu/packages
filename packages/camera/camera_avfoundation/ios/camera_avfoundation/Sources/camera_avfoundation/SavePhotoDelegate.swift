@@ -3,8 +3,10 @@
 // found in the LICENSE file.
 
 import AVFoundation
+import CoreImage
 import Flutter
 import Foundation
+import ImageIO
 
 /// The completion handler block for save photo operations.
 /// Can be called from either main queue or IO queue.
@@ -17,6 +19,34 @@ typealias SavePhotoDelegateCompletionHandler = (String?, Error?) -> Void
 /// Called when AVFoundation is about to capture a still photo.
 typealias SavePhotoDelegateWillCaptureHandler = () -> Void
 
+enum PhotoFileSaveMode {
+  case original
+  case sdrHeif
+}
+
+enum PhotoFileSaveError: LocalizedError {
+  case missingPhotoData
+  case missingCGImageRepresentation
+  case failedToRenderSDRImage
+  case failedToCreateHEIFDestination
+  case failedToFinalizeHEIFDestination
+
+  var errorDescription: String? {
+    switch self {
+    case .missingPhotoData:
+      return "Captured photo did not produce writable image data."
+    case .missingCGImageRepresentation:
+      return "Captured photo did not produce a CGImage representation."
+    case .failedToRenderSDRImage:
+      return "Failed to render captured photo as an 8-bit SDR image."
+    case .failedToCreateHEIFDestination:
+      return "Failed to create HEIF image destination."
+    case .failedToFinalizeHEIFDestination:
+      return "Failed to finalize HEIF image destination."
+    }
+  }
+}
+
 /// Delegate object that handles photo capture results.
 class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
   /// The file path for the captured photo.
@@ -24,6 +54,10 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 
   /// The queue on which captured photos are written to disk.
   private let ioQueue: DispatchQueue
+
+  private let fileSaveMode: PhotoFileSaveMode
+
+  private let ciContext: CIContext
 
   /// The completion handler block for capture and save photo operations.
   let completionHandler: SavePhotoDelegateCompletionHandler
@@ -36,6 +70,10 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     path
   }
 
+  var fileSaveModeForTesting: PhotoFileSaveMode {
+    fileSaveMode
+  }
+
   /// Initialize a photo capture delegate.
   /// path - the path for captured photo file.
   /// ioQueue - the queue on which captured photos are written to disk.
@@ -44,11 +82,14 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
   init(
     path: String,
     ioQueue: DispatchQueue,
+    fileSaveMode: PhotoFileSaveMode = .original,
     willCaptureHandler: SavePhotoDelegateWillCaptureHandler? = nil,
     completionHandler: @escaping SavePhotoDelegateCompletionHandler
   ) {
     self.path = path
     self.ioQueue = ioQueue
+    self.fileSaveMode = fileSaveMode
+    self.ciContext = CIContext()
     self.willCaptureHandler = willCaptureHandler
     self.completionHandler = completionHandler
     super.init()
@@ -60,7 +101,7 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
   ///   - photoDataProvider: A closure that provides photo data
   func handlePhotoCaptureResult(
     error: Error?,
-    photoDataProvider: @escaping () -> WritableData?
+    photoDataProvider: @escaping () throws -> WritableData?
   ) {
     if let error = error {
       completionHandler(nil, error)
@@ -71,8 +112,11 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
       guard let strongSelf = self else { return }
 
       do {
-        let data = photoDataProvider()
-        try data?.writeToPath(strongSelf.path, options: .atomic)
+        guard let data = try photoDataProvider() else {
+          throw PhotoFileSaveError.missingPhotoData
+        }
+
+        try data.writeToPath(strongSelf.path, options: .atomic)
         strongSelf.completionHandler(strongSelf.path, nil)
       } catch {
         strongSelf.completionHandler(nil, error)
@@ -92,8 +136,80 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     didFinishProcessingPhoto photo: AVCapturePhoto,
     error: Error?
   ) {
-    handlePhotoCaptureResult(error: error) {
-      photo.fileDataRepresentation()
+    switch fileSaveMode {
+    case .original:
+      handlePhotoCaptureResult(error: error) {
+        photo.fileDataRepresentation()
+      }
+    case .sdrHeif:
+      handlePhotoCaptureResult(error: error) { [weak self] in
+        guard let strongSelf = self else { return nil }
+        return try strongSelf.createSDRHeifData(from: photo)
+      }
     }
+  }
+
+  private func createSDRHeifData(from photo: AVCapturePhoto) throws -> WritableData? {
+    guard let cgImage = photo.cgImageRepresentation() else {
+      throw PhotoFileSaveError.missingCGImageRepresentation
+    }
+
+    let colorSpace = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
+    let ciImage = CIImage(cgImage: cgImage)
+    guard let sdrCGImage = ciContext.createCGImage(
+      ciImage,
+      from: ciImage.extent,
+      format: .RGBA8,
+      colorSpace: colorSpace
+    ) else {
+      throw PhotoFileSaveError.failedToRenderSDRImage
+    }
+
+    let data = NSMutableData()
+    guard let destination = CGImageDestinationCreateWithData(
+      data,
+      AVFileType.heic.rawValue as CFString,
+      1,
+      nil
+    ) else {
+      throw PhotoFileSaveError.failedToCreateHEIFDestination
+    }
+
+    CGImageDestinationAddImage(
+      destination,
+      sdrCGImage,
+      sdrHeifDestinationProperties(from: photo.metadata, colorSpace: colorSpace) as CFDictionary)
+
+    guard CGImageDestinationFinalize(destination) else {
+      throw PhotoFileSaveError.failedToFinalizeHEIFDestination
+    }
+
+    return data as Data
+  }
+
+  private func sdrHeifDestinationProperties(
+    from metadata: [String: Any],
+    colorSpace: CGColorSpace
+  ) -> [String: Any] {
+    var properties: [String: Any] = [
+      kCGImageDestinationLossyCompressionQuality as String: 1.0,
+      kCGImagePropertyColorModel as String: kCGImagePropertyColorModelRGB,
+      kCGImagePropertyProfileName as String: colorSpace.name as String? ?? "Display P3",
+    ]
+
+    for key in [
+      kCGImagePropertyTIFFDictionary as String,
+      kCGImagePropertyExifDictionary as String,
+      kCGImagePropertyGPSDictionary as String,
+    ] {
+      if let value = metadata[key] {
+        properties[key] = value
+      }
+    }
+
+    properties[kCGImagePropertyOrientation as String] = metadata[
+      kCGImagePropertyOrientation as String]
+
+    return properties
   }
 }

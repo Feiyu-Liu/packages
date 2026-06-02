@@ -12,4 +12,10 @@ enum ImageFileFormat {
   /// HEIF is a file format name that refers to High Efficiency Image Format
   /// (HEIF). For iOS, this is only supported on versions 11+.
   heif,
+
+  /// The HEIF format re-encoded from the SDR base image.
+  ///
+  /// On iOS this avoids preserving HDR gain maps and other HDR auxiliary image
+  /// data from Apple HDR captures.
+  sdrHeif,
 }

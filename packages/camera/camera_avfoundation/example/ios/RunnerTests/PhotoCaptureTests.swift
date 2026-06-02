@@ -15,6 +15,17 @@ final class PhotoCaptureTests: XCTestCase {
     return CameraTestUtils.createTestCamera(configuration)
   }
 
+  private func createCam(
+    with captureSessionQueue: DispatchQueue,
+    resolutionPreset: PlatformResolutionPreset
+  ) -> DefaultCamera {
+    let configuration = CameraTestUtils.createTestCameraConfiguration()
+    configuration.captureSessionQueue = captureSessionQueue
+    configuration.mediaSettings = CameraTestUtils.createDefaultMediaSettings(
+      resolutionPreset: resolutionPreset)
+    return CameraTestUtils.createTestCamera(configuration)
+  }
+
   func testCaptureToFile_mustReportErrorToResultIfSavePhotoDelegateCompletionsWithError() {
     let errorExpectation = expectation(
       description: "Must send error to result if save photo delegate completes with error.")
@@ -118,6 +129,74 @@ final class PhotoCaptureTests: XCTestCase {
         if let filePath = self.assertSuccess(result) {
           XCTAssertEqual((filePath as NSString).pathExtension, "heif")
         }
+        expectation.fulfill()
+      }
+    }
+
+    waitForExpectations(timeout: 30, handler: nil)
+  }
+
+  func testCaptureToFile_usesSDRHeifSaveModeWhenHEVCIsAvailableAndFileFormatIsSDRHEIF() {
+    let expectation = self.expectation(
+      description: "Test must use SDR HEIF save mode if HEVC is available.")
+
+    let captureSessionQueue = DispatchQueue(label: "capture_session_queue")
+    captureSessionQueue.setSpecific(
+      key: captureSessionQueueSpecificKey, value: captureSessionQueueSpecificValue)
+    let cam = createCam(with: captureSessionQueue)
+    cam.setImageFileFormat(PlatformImageFileFormat.sdrHeif)
+
+    let mockOutput = MockCapturePhotoOutput()
+    mockOutput.availablePhotoCodecTypes = [AVVideoCodecType.hevc]
+    mockOutput.capturePhotoWithSettingsStub = { settings, photoDelegate in
+      let delegate =
+        cam.inProgressSavePhotoDelegates[settings.uniqueID]
+      XCTAssertEqual(delegate?.fileSaveModeForTesting, .sdrHeif)
+      let ioQueue = DispatchQueue(label: "io_queue")
+      ioQueue.async {
+        delegate?.completionHandler(delegate?.filePath, nil)
+      }
+    }
+    cam.capturePhotoOutput = mockOutput
+
+    captureSessionQueue.async {
+      cam.captureToFile { result in
+        if let filePath = self.assertSuccess(result) {
+          XCTAssertEqual((filePath as NSString).pathExtension, "heif")
+        }
+        expectation.fulfill()
+      }
+    }
+
+    waitForExpectations(timeout: 30, handler: nil)
+  }
+
+  func testCaptureToFile_enablesHighResolutionForHeifWhenResolutionPresetIsMax() {
+    let expectation = self.expectation(
+      description: "Test must keep high-resolution photo capture enabled for HEIF max preset.")
+
+    let captureSessionQueue = DispatchQueue(label: "capture_session_queue")
+    captureSessionQueue.setSpecific(
+      key: captureSessionQueueSpecificKey, value: captureSessionQueueSpecificValue)
+    let cam = createCam(with: captureSessionQueue, resolutionPreset: .max)
+    cam.setImageFileFormat(PlatformImageFileFormat.heif)
+
+    let mockOutput = MockCapturePhotoOutput()
+    mockOutput.availablePhotoCodecTypes = [AVVideoCodecType.hevc]
+    mockOutput.capturePhotoWithSettingsStub = { settings, photoDelegate in
+      XCTAssertTrue(settings.isHighResolutionPhotoEnabled)
+      let delegate =
+        cam.inProgressSavePhotoDelegates[settings.uniqueID]
+      let ioQueue = DispatchQueue(label: "io_queue")
+      ioQueue.async {
+        delegate?.completionHandler(delegate?.filePath, nil)
+      }
+    }
+    cam.capturePhotoOutput = mockOutput
+
+    captureSessionQueue.async {
+      cam.captureToFile { result in
+        XCTAssertNotNil(self.assertSuccess(result))
         expectation.fulfill()
       }
     }
