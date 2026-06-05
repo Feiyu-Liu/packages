@@ -78,6 +78,7 @@ final class DefaultCamera: NSObject, Camera {
   private var zoomObserverTimer: DispatchSourceTimer?
   private var lastNotifiedZoomFactor: CGFloat?
   private var lastNotifiedZoomRamping: Bool?
+  private var hasAppliedDefaultStartupZoom = false
 
   private(set) var captureDevice: CaptureDevice
   // Setter exposed for tests.
@@ -573,6 +574,7 @@ final class DefaultCamera: NSObject, Camera {
   }
 
   func start() {
+    applyDefaultStartupZoomIfNeeded()
     videoCaptureSession.startRunning()
     audioCaptureSession.startRunning()
   }
@@ -620,6 +622,39 @@ final class DefaultCamera: NSObject, Camera {
     lastNotifiedZoomFactor = zoomFactor
     lastNotifiedZoomRamping = isRamping
     onZoomFactorChanged?(zoomFactor, isRamping)
+  }
+
+  private func applyDefaultStartupZoomIfNeeded() {
+    guard !hasAppliedDefaultStartupZoom else {
+      return
+    }
+    hasAppliedDefaultStartupZoom = true
+
+    guard captureDevice.position == .back && captureDevice.isVirtualDevice else {
+      return
+    }
+
+    let multiplier = captureDevice.flutterDisplayVideoZoomFactorMultiplier
+    let displayZoomFactorMultiplier = multiplier == 0 ? 1.0 : multiplier
+    let rawTargetZoomFactor = 1.0 / displayZoomFactorMultiplier
+    let targetZoomFactor = min(
+      max(rawTargetZoomFactor, captureDevice.minAvailableVideoZoomFactor),
+      captureDevice.maxAvailableVideoZoomFactor)
+
+    guard abs(captureDevice.videoZoomFactor - targetZoomFactor) >= 0.0001 else {
+      return
+    }
+
+    do {
+      try captureDevice.lockForConfiguration()
+    } catch let error as NSError {
+      reportErrorMessage(error.localizedDescription)
+      return
+    }
+
+    captureDevice.cancelVideoZoomRamp()
+    captureDevice.videoZoomFactor = targetZoomFactor
+    captureDevice.unlockForConfiguration()
   }
 
   func startVideoRecording(
