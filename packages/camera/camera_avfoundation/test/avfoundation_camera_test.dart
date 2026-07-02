@@ -1072,6 +1072,12 @@ void main() {
       );
     });
 
+    test('Should set the photo capture mirroring', () async {
+      await camera.setPhotoCaptureMirrored(true);
+
+      verify(mockApi.setPhotoCaptureMirrored(true));
+    });
+
     test('Should unlock the capture orientation', () async {
       await camera.unlockCaptureOrientation(cameraId);
 

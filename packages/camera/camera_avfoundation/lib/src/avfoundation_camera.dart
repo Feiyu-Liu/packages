@@ -206,6 +206,12 @@ class AVFoundationCamera extends CameraPlatform {
     );
   }
 
+  /// Sets whether still photo capture should be mirrored without changing
+  /// preview/video output mirroring.
+  Future<void> setPhotoCaptureMirrored(bool mirrored) async {
+    await _hostApi.setPhotoCaptureMirrored(mirrored);
+  }
+
   @override
   Future<void> unlockCaptureOrientation(int cameraId) async {
     await _hostApi.unlockCaptureOrientation();

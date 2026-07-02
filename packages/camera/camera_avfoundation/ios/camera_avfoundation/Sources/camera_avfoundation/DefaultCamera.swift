@@ -1003,6 +1003,15 @@ final class DefaultCamera: NSObject, Camera {
       getUIDeviceOrientation(for: pigeonOrientation), forCaptureOutput: capturePhotoOutput)
   }
 
+  func setPhotoCaptureMirrored(_ mirrored: Bool) {
+    guard let connection = capturePhotoOutput.connection(with: .video),
+      connection.isVideoMirroringSupported
+    else {
+      return
+    }
+    connection.isVideoMirrored = mirrored
+  }
+
   func unlockCaptureOrientation() {
     lockedCaptureOrientation = .unknown
     updateOrientation()

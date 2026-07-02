@@ -160,6 +160,15 @@ class MockCameraApi extends _i1.Mock implements _i2.CameraApi {
           as _i4.Future<void>);
 
   @override
+  _i4.Future<void> setPhotoCaptureMirrored(bool? mirrored) =>
+      (super.noSuchMethod(
+            Invocation.method(#setPhotoCaptureMirrored, [mirrored]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
   _i4.Future<void> unlockCaptureOrientation() =>
       (super.noSuchMethod(
             Invocation.method(#unlockCaptureOrientation, []),

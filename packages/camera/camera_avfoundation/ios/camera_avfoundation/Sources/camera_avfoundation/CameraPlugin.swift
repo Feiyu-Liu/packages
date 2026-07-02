@@ -393,6 +393,15 @@ extension CameraPlugin: CameraApi {
     }
   }
 
+  func setPhotoCaptureMirrored(
+    mirrored: Bool, completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setPhotoCaptureMirrored(mirrored)
+      completion(.success(()))
+    }
+  }
+
   func unlockCaptureOrientation(completion: @escaping (Result<Void, any Error>) -> Void) {
     captureSessionQueue.async { [weak self] in
       self?.camera?.unlockCaptureOrientation()

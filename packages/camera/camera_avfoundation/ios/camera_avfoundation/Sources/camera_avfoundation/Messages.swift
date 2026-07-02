@@ -997,6 +997,9 @@ protocol CameraApi {
   /// Sets the still photo capture orientation without changing the preview or
   /// video output orientation.
   func setPhotoCaptureOrientation(orientation: PlatformDeviceOrientation, completion: @escaping (Result<Void, Error>) -> Void)
+  /// Sets whether still photo capture should be mirrored without changing the
+  /// preview or video output mirroring.
+  func setPhotoCaptureMirrored(mirrored: Bool, completion: @escaping (Result<Void, Error>) -> Void)
   /// Unlocks camera capture orientation, allowing it to automatically adapt to
   /// device orientation.
   func unlockCaptureOrientation(completion: @escaping (Result<Void, Error>) -> Void)
@@ -1244,6 +1247,25 @@ class CameraApiSetup {
       }
     } else {
       setPhotoCaptureOrientationChannel.setMessageHandler(nil)
+    }
+    /// Sets whether still photo capture should be mirrored without changing the
+    /// preview or video output mirroring.
+    let setPhotoCaptureMirroredChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.camera_avfoundation.CameraApi.setPhotoCaptureMirrored\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      setPhotoCaptureMirroredChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let mirroredArg = args[0] as! Bool
+        api.setPhotoCaptureMirrored(mirrored: mirroredArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      setPhotoCaptureMirroredChannel.setMessageHandler(nil)
     }
     /// Unlocks camera capture orientation, allowing it to automatically adapt to
     /// device orientation.

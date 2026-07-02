@@ -49,6 +49,26 @@ final class CameraPluginDelegatingMethodTests: XCTestCase {
     XCTAssertTrue(lockCaptureCalled)
   }
 
+  func testSetPhotoCaptureMirrored_callsCameraSetPhotoCaptureMirrored() {
+    let (cameraPlugin, mockCamera) = createCameraPlugin()
+    let expectation = expectation(description: "Call completed")
+
+    var setMirroredCalled = false
+    mockCamera.setPhotoCaptureMirroredStub = { mirrored in
+      XCTAssertTrue(mirrored)
+      setMirroredCalled = true
+    }
+
+    cameraPlugin.setPhotoCaptureMirrored(mirrored: true) { result in
+      let _ = self.assertSuccess(result)
+      expectation.fulfill()
+    }
+
+    waitForExpectations(timeout: 30, handler: nil)
+
+    XCTAssertTrue(setMirroredCalled)
+  }
+
   func testPausePreview_callsCameraPausePreview() {
     let (cameraPlugin, mockCamera) = createCameraPlugin()
     let expectation = expectation(description: "Call completed")

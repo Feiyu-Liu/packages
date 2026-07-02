@@ -64,6 +64,7 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
 
   func lockCaptureOrientation(_ orientation: PlatformDeviceOrientation)
   func setPhotoCaptureOrientation(_ orientation: PlatformDeviceOrientation)
+  func setPhotoCaptureMirrored(_ mirrored: Bool)
   func unlockCaptureOrientation()
 
   func setImageFileFormat(_ fileFormat: PlatformImageFileFormat)

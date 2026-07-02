@@ -91,6 +91,26 @@ final class CameraSetDeviceOrientationTests: XCTestCase {
     XCTAssertTrue(photoSetVideoOrientationCalled)
   }
 
+  func testSetPhotoCaptureMirrored_setsMirroringOfPhotoCaptureConnection() {
+    let (camera, mockPhotoCaptureConnection, mockVideoCaptureConnection) = createCamera()
+    mockPhotoCaptureConnection.isVideoMirroringSupported = true
+    mockVideoCaptureConnection.isVideoMirroringSupported = true
+
+    camera.setPhotoCaptureMirrored(true)
+
+    XCTAssertTrue(mockPhotoCaptureConnection.isVideoMirrored)
+    XCTAssertFalse(mockVideoCaptureConnection.isVideoMirrored)
+  }
+
+  func testSetPhotoCaptureMirrored_ignoresUnsupportedPhotoCaptureConnection() {
+    let (camera, mockPhotoCaptureConnection, _) = createCamera()
+    mockPhotoCaptureConnection.isVideoMirroringSupported = false
+
+    camera.setPhotoCaptureMirrored(true)
+
+    XCTAssertFalse(mockPhotoCaptureConnection.isVideoMirrored)
+  }
+
   func testSetDeviceOrientation_doesNotSetOrientations_ifRecordingIsInProgress() {
     let (camera, mockPhotoCaptureConnection, mockVideoCaptureConnection) = createCamera()
 

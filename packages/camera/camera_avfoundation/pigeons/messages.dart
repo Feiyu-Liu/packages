@@ -346,6 +346,12 @@ abstract class CameraApi {
   @ObjCSelector('setPhotoCaptureOrientation:')
   void setPhotoCaptureOrientation(PlatformDeviceOrientation orientation);
 
+  /// Sets whether still photo capture should be mirrored without changing the
+  /// preview or video output mirroring.
+  @async
+  @ObjCSelector('setPhotoCaptureMirrored:')
+  void setPhotoCaptureMirrored(bool mirrored);
+
   /// Unlocks camera capture orientation, allowing it to automatically adapt to
   /// device orientation.
   @async
