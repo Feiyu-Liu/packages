@@ -145,6 +145,7 @@ final class PhotoCaptureTests: XCTestCase {
       key: captureSessionQueueSpecificKey, value: captureSessionQueueSpecificValue)
     let cam = createCam(with: captureSessionQueue)
     cam.setImageFileFormat(PlatformImageFileFormat.sdrHeif)
+    cam.setImageFileCompressionQuality(0.85)
 
     let mockOutput = MockCapturePhotoOutput()
     mockOutput.availablePhotoCodecTypes = [AVVideoCodecType.hevc]
@@ -152,6 +153,7 @@ final class PhotoCaptureTests: XCTestCase {
       let delegate =
         cam.inProgressSavePhotoDelegates[settings.uniqueID]
       XCTAssertEqual(delegate?.fileSaveModeForTesting, .sdrHeif)
+      XCTAssertEqual(delegate?.compressionQualityForTesting, 0.85)
       let ioQueue = DispatchQueue(label: "io_queue")
       ioQueue.async {
         delegate?.completionHandler(delegate?.filePath, nil)

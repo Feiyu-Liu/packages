@@ -483,6 +483,11 @@ abstract class CameraApi {
   @async
   @ObjCSelector('setImageFileFormat:')
   void setImageFileFormat(PlatformImageFileFormat format);
+
+  /// Sets the lossy compression quality used when re-encoding image files.
+  @async
+  @ObjCSelector('setImageFileCompressionQuality:')
+  void setImageFileCompressionQuality(double quality);
 }
 
 @EventChannelApi()

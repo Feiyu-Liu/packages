@@ -68,6 +68,7 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
   func unlockCaptureOrientation()
 
   func setImageFileFormat(_ fileFormat: PlatformImageFileFormat)
+  func setImageFileCompressionQuality(_ quality: Double)
 
   func setExposureMode(_ mode: PlatformExposureMode)
   func setExposureOffset(_ offset: Double)

@@ -443,4 +443,13 @@ class MockCameraApi extends _i1.Mock implements _i2.CameraApi {
             returnValueForMissingStub: _i4.Future<void>.value(),
           )
           as _i4.Future<void>);
+
+  @override
+  _i4.Future<void> setImageFileCompressionQuality(double? quality) =>
+      (super.noSuchMethod(
+            Invocation.method(#setImageFileCompressionQuality, [quality]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
 }

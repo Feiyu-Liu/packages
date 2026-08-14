@@ -57,6 +57,8 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 
   private let fileSaveMode: PhotoFileSaveMode
 
+  private let compressionQuality: Double
+
   private let ciContext: CIContext
 
   /// The completion handler block for capture and save photo operations.
@@ -74,6 +76,10 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     fileSaveMode
   }
 
+  var compressionQualityForTesting: Double {
+    compressionQuality
+  }
+
   /// Initialize a photo capture delegate.
   /// path - the path for captured photo file.
   /// ioQueue - the queue on which captured photos are written to disk.
@@ -83,12 +89,14 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     path: String,
     ioQueue: DispatchQueue,
     fileSaveMode: PhotoFileSaveMode = .original,
+    compressionQuality: Double = 1.0,
     willCaptureHandler: SavePhotoDelegateWillCaptureHandler? = nil,
     completionHandler: @escaping SavePhotoDelegateCompletionHandler
   ) {
     self.path = path
     self.ioQueue = ioQueue
     self.fileSaveMode = fileSaveMode
+    self.compressionQuality = compressionQuality
     self.ciContext = CIContext()
     self.willCaptureHandler = willCaptureHandler
     self.completionHandler = completionHandler
@@ -156,22 +164,26 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 
     let colorSpace = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
     let ciImage = CIImage(cgImage: cgImage)
-    guard let sdrCGImage = ciContext.createCGImage(
-      ciImage,
-      from: ciImage.extent,
-      format: .RGBA8,
-      colorSpace: colorSpace
-    ) else {
+    guard
+      let sdrCGImage = ciContext.createCGImage(
+        ciImage,
+        from: ciImage.extent,
+        format: .RGBA8,
+        colorSpace: colorSpace
+      )
+    else {
       throw PhotoFileSaveError.failedToRenderSDRImage
     }
 
     let data = NSMutableData()
-    guard let destination = CGImageDestinationCreateWithData(
-      data,
-      AVFileType.heic.rawValue as CFString,
-      1,
-      nil
-    ) else {
+    guard
+      let destination = CGImageDestinationCreateWithData(
+        data,
+        AVFileType.heic.rawValue as CFString,
+        1,
+        nil
+      )
+    else {
       throw PhotoFileSaveError.failedToCreateHEIFDestination
     }
 
@@ -192,7 +204,7 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     colorSpace: CGColorSpace
   ) -> [String: Any] {
     var properties: [String: Any] = [
-      kCGImageDestinationLossyCompressionQuality as String: 1.0,
+      kCGImageDestinationLossyCompressionQuality as String: compressionQuality,
       kCGImagePropertyColorModel as String: kCGImagePropertyColorModelRGB,
       kCGImagePropertyProfileName as String: colorSpace.name as String? ?? "Display P3",
     ]
@@ -207,8 +219,9 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
       }
     }
 
-    properties[kCGImagePropertyOrientation as String] = metadata[
-      kCGImagePropertyOrientation as String]
+    properties[kCGImagePropertyOrientation as String] =
+      metadata[
+        kCGImagePropertyOrientation as String]
 
     return properties
   }

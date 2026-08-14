@@ -182,7 +182,8 @@ extension CameraPlugin: CameraApi {
           lensType: DefaultCamera.platformLensType(for: device),
           deviceType: DefaultCamera.platformCaptureDeviceType(for: device),
           isVirtualDevice: device.isVirtualDevice,
-          constituentDevices: device.flutterConstituentDevices.map(DefaultCamera.platformConstituentDevice)
+          constituentDevices: device.flutterConstituentDevices.map(
+            DefaultCamera.platformConstituentDevice)
         )
       }
 
@@ -638,6 +639,24 @@ extension CameraPlugin: CameraApi {
   ) {
     captureSessionQueue.async { [weak self] in
       self?.camera?.setImageFileFormat(format)
+      completion(.success(()))
+    }
+  }
+
+  func setImageFileCompressionQuality(
+    quality: Double, completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
+    guard quality.isFinite, (0.0...1.0).contains(quality) else {
+      completion(
+        .failure(
+          PigeonError(
+            code: "invalid_image_file_compression_quality",
+            message: "Image file compression quality must be between 0.0 and 1.0.",
+            details: quality)))
+      return
+    }
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setImageFileCompressionQuality(quality)
       completion(.success(()))
     }
   }

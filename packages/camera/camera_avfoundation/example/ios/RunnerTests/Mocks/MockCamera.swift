@@ -33,13 +33,15 @@ final class MockCamera: NSObject, Camera {
   var setPhotoCaptureMirroredStub: ((Bool) -> Void)?
   var unlockCaptureOrientationStub: (() -> Void)?
   var setImageFileFormatStub: ((PlatformImageFileFormat) -> Void)?
+  var setImageFileCompressionQualityStub: ((Double) -> Void)?
   var setExposureModeStub: ((PlatformExposureMode) -> Void)?
   var setExposureOffsetStub: ((Double) -> Void)?
   var setExposurePointStub: ((PlatformPoint?, @escaping (Result<Void, any Error>) -> Void) -> Void)?
   var setFocusModeStub: ((PlatformFocusMode) -> Void)?
   var setFocusPointStub: ((PlatformPoint?, @escaping (Result<Void, any Error>) -> Void) -> Void)?
   var setZoomLevelStub: ((CGFloat, @escaping (Result<Void, any Error>) -> Void) -> Void)?
-  var setZoomFactorStub: ((CGFloat, Bool, Float, @escaping (Result<Void, any Error>) -> Void) -> Void)?
+  var setZoomFactorStub:
+    ((CGFloat, Bool, Float, @escaping (Result<Void, any Error>) -> Void) -> Void)?
   var setFlashModeStub: ((PlatformFlashMode, @escaping (Result<Void, any Error>) -> Void) -> Void)?
   var pausePreviewStub: (() -> Void)?
   var resumePreviewStub: (() -> Void)?
@@ -187,6 +189,10 @@ final class MockCamera: NSObject, Camera {
 
   func setImageFileFormat(_ fileFormat: PlatformImageFileFormat) {
     setImageFileFormatStub?(fileFormat)
+  }
+
+  func setImageFileCompressionQuality(_ quality: Double) {
+    setImageFileCompressionQualityStub?(quality)
   }
 
   func setExposureMode(_ mode: PlatformExposureMode) {

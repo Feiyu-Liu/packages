@@ -35,10 +35,12 @@ final class DefaultCamera: NSObject, Camera {
       displayZoomFactorMultiplier: captureDevice.flutterDisplayVideoZoomFactorMultiplier,
       virtualDeviceSwitchOverZoomFactors: captureDevice.virtualDeviceSwitchOverVideoZoomFactors
         .map { $0.doubleValue },
-      secondaryNativeResolutionZoomFactors: captureDevice.flutterSecondaryNativeResolutionZoomFactors
+      secondaryNativeResolutionZoomFactors: captureDevice
+        .flutterSecondaryNativeResolutionZoomFactors
         .map { Double($0) },
       isVirtualDevice: captureDevice.isVirtualDevice,
-      constituentDevices: captureDevice.flutterConstituentDevices.map(Self.platformConstituentDevice)
+      constituentDevices: captureDevice.flutterConstituentDevices.map(
+        Self.platformConstituentDevice)
     )
   }
   var onZoomFactorChanged: ((CGFloat, Bool) -> Void)?
@@ -143,6 +145,7 @@ final class DefaultCamera: NSObject, Camera {
   private var maxStreamingPendingFramesCount = 4
 
   private var fileFormat = PlatformImageFileFormat.jpeg
+  private var imageFileCompressionQuality = 1.0
   private var lockedCaptureOrientation = UIDeviceOrientation.unknown
   private var exposureMode = PlatformExposureMode.auto
   private var focusMode = PlatformFocusMode.auto
@@ -862,7 +865,7 @@ final class DefaultCamera: NSObject, Camera {
     let fileExtension: String
     var settings: AVCapturePhotoSettings
 
-    if (fileFormat == .heif || fileFormat == .sdrHeif), isHEVCCodecAvailable {
+    if fileFormat == .heif || fileFormat == .sdrHeif, isHEVCCodecAvailable {
       settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
       fileExtension = "heif"
     } else {
@@ -893,6 +896,7 @@ final class DefaultCamera: NSObject, Camera {
       path: path,
       ioQueue: photoIOQueue,
       fileSaveMode: fileFormat == .sdrHeif && isHEVCCodecAvailable ? .sdrHeif : .original,
+      compressionQuality: imageFileCompressionQuality,
       willCaptureHandler: { [weak self] in
         self?.sendPhotoCaptureWillCapture()
       },
@@ -1019,6 +1023,10 @@ final class DefaultCamera: NSObject, Camera {
 
   func setImageFileFormat(_ fileFormat: PlatformImageFileFormat) {
     self.fileFormat = fileFormat
+  }
+
+  func setImageFileCompressionQuality(_ quality: Double) {
+    imageFileCompressionQuality = quality
   }
 
   func setExposureMode(_ mode: PlatformExposureMode) {

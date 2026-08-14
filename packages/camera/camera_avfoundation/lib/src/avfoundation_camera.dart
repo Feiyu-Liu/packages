@@ -514,6 +514,20 @@ class AVFoundationCamera extends CameraPlatform {
     await _hostApi.setImageFileFormat(_pigeonImageFileFormat(format));
   }
 
+  /// Sets the lossy compression quality used when re-encoding image files.
+  ///
+  /// The [quality] must be between 0.0 (lowest) and 1.0 (highest).
+  Future<void> setImageFileCompressionQuality(double quality) async {
+    if (!quality.isFinite || quality < 0.0 || quality > 1.0) {
+      throw ArgumentError.value(
+        quality,
+        'quality',
+        'Must be a finite value between 0.0 and 1.0.',
+      );
+    }
+    await _hostApi.setImageFileCompressionQuality(quality);
+  }
+
   @override
   Widget buildPreview(int cameraId) {
     return Texture(textureId: cameraId);

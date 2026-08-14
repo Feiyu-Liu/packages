@@ -1137,5 +1137,20 @@ void main() {
 
       verify(mockApi.setImageFileFormat(PlatformImageFileFormat.jpeg));
     });
+
+    test('Should set the image file compression quality', () async {
+      await camera.setImageFileCompressionQuality(0.85);
+
+      verify(mockApi.setImageFileCompressionQuality(0.85));
+    });
+
+    test('Should reject an invalid image file compression quality', () async {
+      expect(
+        () => camera.setImageFileCompressionQuality(1.01),
+        throwsArgumentError,
+      );
+
+      verifyNever(mockApi.setImageFileCompressionQuality(any));
+    });
   });
 }

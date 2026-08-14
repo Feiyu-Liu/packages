@@ -271,6 +271,52 @@ final class CameraPluginDelegatingMethodTests: XCTestCase {
     XCTAssertTrue(setImageFileFormatCalled)
   }
 
+  func testSetImageFileCompressionQuality_callsCameraSetImageFileCompressionQuality() {
+    let (cameraPlugin, mockCamera) = createCameraPlugin()
+    let expectation = expectation(description: "Call completed")
+
+    var receivedQuality: Double?
+    mockCamera.setImageFileCompressionQualityStub = { quality in
+      receivedQuality = quality
+    }
+
+    cameraPlugin.setImageFileCompressionQuality(quality: 0.85) { result in
+      let _ = self.assertSuccess(result)
+      expectation.fulfill()
+    }
+
+    waitForExpectations(timeout: 30, handler: nil)
+
+    XCTAssertEqual(receivedQuality, 0.85)
+  }
+
+  func testSetImageFileCompressionQuality_rejectsInvalidQuality() {
+    let (cameraPlugin, mockCamera) = createCameraPlugin()
+    let expectation = expectation(description: "Call completed")
+
+    var setterCalled = false
+    mockCamera.setImageFileCompressionQualityStub = { _ in
+      setterCalled = true
+    }
+
+    cameraPlugin.setImageFileCompressionQuality(quality: 1.01) { result in
+      switch result {
+      case .success:
+        XCTFail("Invalid compression quality must fail.")
+      case .failure(let error):
+        XCTAssertEqual(
+          (error as? PigeonError)?.code,
+          "invalid_image_file_compression_quality"
+        )
+      }
+      expectation.fulfill()
+    }
+
+    waitForExpectations(timeout: 30, handler: nil)
+
+    XCTAssertFalse(setterCalled)
+  }
+
   func testStartImageStream_callsCameraStartImageStream() {
     let (cameraPlugin, mockCamera) = createCameraPlugin()
     let expectation = expectation(description: "Call completed")
