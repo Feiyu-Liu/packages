@@ -71,6 +71,16 @@ enum PlatformFocusMode { auto, locked }
 /// Pigeon version of ImageFileFormat.
 enum PlatformImageFileFormat { jpeg, heif, sdrHeif }
 
+/// AVFoundation-specific crop mode applied before the captured image is encoded.
+enum PlatformPhotoCropMode { none, square }
+
+/// AVFoundation-specific options for a still photo capture.
+class PlatformPhotoCaptureOptions {
+  PlatformPhotoCaptureOptions({required this.cropMode});
+
+  final PlatformPhotoCropMode cropMode;
+}
+
 // Pigeon version of the subset of ImageFormatGroup supported on iOS.
 enum PlatformImageFormatGroup { bgra8888, yuv420 }
 
@@ -360,7 +370,7 @@ abstract class CameraApi {
   /// Takes a picture with the current settings, and returns the path to the
   /// resulting file.
   @async
-  String takePicture();
+  String takePicture(PlatformPhotoCaptureOptions options);
 
   /// Does any preprocessing necessary before beginning to record video.
   @async

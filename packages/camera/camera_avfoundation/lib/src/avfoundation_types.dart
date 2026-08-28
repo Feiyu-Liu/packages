@@ -5,6 +5,26 @@
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 
+/// Crop mode applied by AVFoundation before a captured photo is encoded.
+enum AVFoundationPhotoCropMode {
+  /// Preserve the full captured frame.
+  none,
+
+  /// Center-crop the captured frame to a square.
+  square,
+}
+
+/// AVFoundation-specific still photo capture options.
+class AVFoundationPhotoCaptureOptions {
+  /// Creates capture options with no crop by default.
+  const AVFoundationPhotoCaptureOptions({
+    this.cropMode = AVFoundationPhotoCropMode.none,
+  });
+
+  /// Crop mode applied before encoding the captured photo.
+  final AVFoundationPhotoCropMode cropMode;
+}
+
 /// The AVFoundation capture device type.
 enum AVFoundationCaptureDeviceType {
   /// A built-in wide-angle camera.

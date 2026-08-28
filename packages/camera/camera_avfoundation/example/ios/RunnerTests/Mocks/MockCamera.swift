@@ -26,7 +26,8 @@ final class MockCamera: NSObject, Camera {
   var pauseVideoRecordingStub: (() -> Void)?
   var resumeVideoRecordingStub: (() -> Void)?
   var stopVideoRecordingStub: ((@escaping (Result<String, any Error>) -> Void) -> Void)?
-  var captureToFileStub: ((@escaping (Result<String, any Error>) -> Void) -> Void)?
+  var captureToFileStub:
+    ((PlatformPhotoCropMode, @escaping (Result<String, any Error>) -> Void) -> Void)?
   var setDeviceOrientationStub: ((UIDeviceOrientation) -> Void)?
   var lockCaptureOrientationStub: ((PlatformDeviceOrientation) -> Void)?
   var setPhotoCaptureOrientationStub: ((PlatformDeviceOrientation) -> Void)?
@@ -167,8 +168,11 @@ final class MockCamera: NSObject, Camera {
     stopVideoRecordingStub?(completion)
   }
 
-  func captureToFile(completion: @escaping (Result<String, any Error>) -> Void) {
-    captureToFileStub?(completion)
+  func captureToFile(
+    cropMode: PlatformPhotoCropMode,
+    completion: @escaping (Result<String, any Error>) -> Void
+  ) {
+    captureToFileStub?(cropMode, completion)
   }
 
   func lockCaptureOrientation(_ orientation: PlatformDeviceOrientation) {

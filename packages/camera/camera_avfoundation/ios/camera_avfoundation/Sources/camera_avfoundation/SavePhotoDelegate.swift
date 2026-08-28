@@ -57,6 +57,8 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 
   private let fileSaveMode: PhotoFileSaveMode
 
+  private let cropMode: PlatformPhotoCropMode
+
   private let compressionQuality: Double
 
   private let ciContext: CIContext
@@ -80,6 +82,10 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     compressionQuality
   }
 
+  var cropModeForTesting: PlatformPhotoCropMode {
+    cropMode
+  }
+
   /// Initialize a photo capture delegate.
   /// path - the path for captured photo file.
   /// ioQueue - the queue on which captured photos are written to disk.
@@ -89,6 +95,7 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     path: String,
     ioQueue: DispatchQueue,
     fileSaveMode: PhotoFileSaveMode = .original,
+    cropMode: PlatformPhotoCropMode = .none,
     compressionQuality: Double = 1.0,
     willCaptureHandler: SavePhotoDelegateWillCaptureHandler? = nil,
     completionHandler: @escaping SavePhotoDelegateCompletionHandler
@@ -96,6 +103,7 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     self.path = path
     self.ioQueue = ioQueue
     self.fileSaveMode = fileSaveMode
+    self.cropMode = cropMode
     self.compressionQuality = compressionQuality
     self.ciContext = CIContext()
     self.willCaptureHandler = willCaptureHandler
@@ -164,10 +172,23 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 
     let colorSpace = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
     let ciImage = CIImage(cgImage: cgImage)
+    let renderExtent: CGRect
+    switch cropMode {
+    case .none:
+      renderExtent = ciImage.extent
+    case .square:
+      let side = floor(min(ciImage.extent.width, ciImage.extent.height))
+      renderExtent = CGRect(
+        x: floor(ciImage.extent.midX - side / 2),
+        y: floor(ciImage.extent.midY - side / 2),
+        width: side,
+        height: side
+      )
+    }
     guard
       let sdrCGImage = ciContext.createCGImage(
         ciImage,
-        from: ciImage.extent,
+        from: renderExtent,
         format: .RGBA8,
         colorSpace: colorSpace
       )
@@ -190,7 +211,12 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
     CGImageDestinationAddImage(
       destination,
       sdrCGImage,
-      sdrHeifDestinationProperties(from: photo.metadata, colorSpace: colorSpace) as CFDictionary)
+      sdrHeifDestinationProperties(
+        from: photo.metadata,
+        colorSpace: colorSpace,
+        pixelWidth: sdrCGImage.width,
+        pixelHeight: sdrCGImage.height
+      ) as CFDictionary)
 
     guard CGImageDestinationFinalize(destination) else {
       throw PhotoFileSaveError.failedToFinalizeHEIFDestination
@@ -201,12 +227,16 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 
   private func sdrHeifDestinationProperties(
     from metadata: [String: Any],
-    colorSpace: CGColorSpace
+    colorSpace: CGColorSpace,
+    pixelWidth: Int,
+    pixelHeight: Int
   ) -> [String: Any] {
     var properties: [String: Any] = [
       kCGImageDestinationLossyCompressionQuality as String: compressionQuality,
       kCGImagePropertyColorModel as String: kCGImagePropertyColorModelRGB,
       kCGImagePropertyProfileName as String: colorSpace.name as String? ?? "Display P3",
+      kCGImagePropertyPixelWidth as String: pixelWidth,
+      kCGImagePropertyPixelHeight as String: pixelHeight,
     ]
 
     for key in [
@@ -217,6 +247,12 @@ class SavePhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
       if let value = metadata[key] {
         properties[key] = value
       }
+    }
+
+    if var exif = properties[kCGImagePropertyExifDictionary as String] as? [String: Any] {
+      exif[kCGImagePropertyExifPixelXDimension as String] = pixelWidth
+      exif[kCGImagePropertyExifPixelYDimension as String] = pixelHeight
+      properties[kCGImagePropertyExifDictionary as String] = exif
     }
 
     properties[kCGImagePropertyOrientation as String] =

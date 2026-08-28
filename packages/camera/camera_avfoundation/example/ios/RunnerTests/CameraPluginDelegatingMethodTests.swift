@@ -543,12 +543,13 @@ final class CameraPluginDelegatingMethodTests: XCTestCase {
     let targetPath = "path"
 
     var captureToFileCalled = false
-    mockCamera.captureToFileStub = { completion in
+    mockCamera.captureToFileStub = { cropMode, completion in
+      XCTAssertEqual(cropMode, .square)
       completion(.success(targetPath))
       captureToFileCalled = true
     }
 
-    cameraPlugin.takePicture { result in
+    cameraPlugin.takePicture(options: PlatformPhotoCaptureOptions(cropMode: .square)) { result in
       switch result {
       case .success(let path):
         XCTAssertEqual(path, targetPath)

@@ -410,9 +410,12 @@ extension CameraPlugin: CameraApi {
     }
   }
 
-  func takePicture(completion: @escaping (Result<String, any Error>) -> Void) {
+  func takePicture(
+    options: PlatformPhotoCaptureOptions,
+    completion: @escaping (Result<String, any Error>) -> Void
+  ) {
     captureSessionQueue.async { [weak self] in
-      self?.camera?.captureToFile(completion: completion)
+      self?.camera?.captureToFile(cropMode: options.cropMode, completion: completion)
     }
   }
 

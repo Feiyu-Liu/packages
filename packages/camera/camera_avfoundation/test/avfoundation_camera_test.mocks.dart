@@ -178,14 +178,20 @@ class MockCameraApi extends _i1.Mock implements _i2.CameraApi {
           as _i4.Future<void>);
 
   @override
-  _i4.Future<String> takePicture() =>
+  _i4.Future<String> takePicture(_i2.PlatformPhotoCaptureOptions? options) =>
       (super.noSuchMethod(
-            Invocation.method(#takePicture, []),
+            Invocation.method(#takePicture, [options]),
             returnValue: _i4.Future<String>.value(
-              _i3.dummyValue<String>(this, Invocation.method(#takePicture, [])),
+              _i3.dummyValue<String>(
+                this,
+                Invocation.method(#takePicture, [options]),
+              ),
             ),
             returnValueForMissingStub: _i4.Future<String>.value(
-              _i3.dummyValue<String>(this, Invocation.method(#takePicture, [])),
+              _i3.dummyValue<String>(
+                this,
+                Invocation.method(#takePicture, [options]),
+              ),
             ),
           )
           as _i4.Future<String>);

@@ -173,6 +173,60 @@ final class PhotoCaptureTests: XCTestCase {
     waitForExpectations(timeout: 30, handler: nil)
   }
 
+  func testCaptureToFile_passesSquareCropToSDRHeifSaveDelegate() {
+    let expectation = self.expectation(description: "Test must pass square crop mode.")
+    let captureSessionQueue = DispatchQueue(label: "capture_session_queue")
+    captureSessionQueue.setSpecific(
+      key: captureSessionQueueSpecificKey, value: captureSessionQueueSpecificValue)
+    let cam = createCam(with: captureSessionQueue)
+    cam.setImageFileFormat(.sdrHeif)
+
+    let mockOutput = MockCapturePhotoOutput()
+    mockOutput.availablePhotoCodecTypes = [.hevc]
+    mockOutput.capturePhotoWithSettingsStub = { settings, _ in
+      let delegate = cam.inProgressSavePhotoDelegates[settings.uniqueID]
+      XCTAssertEqual(delegate?.cropModeForTesting, .square)
+      delegate?.completionHandler(delegate?.filePath, nil)
+    }
+    cam.capturePhotoOutput = mockOutput
+
+    captureSessionQueue.async {
+      cam.captureToFile(cropMode: .square) { result in
+        XCTAssertNotNil(self.assertSuccess(result))
+        expectation.fulfill()
+      }
+    }
+
+    waitForExpectations(timeout: 30, handler: nil)
+  }
+
+  func testCaptureToFile_rejectsSquareCropForOriginalHEIF() {
+    let expectation = self.expectation(description: "Test must reject unsupported HDR square.")
+    let captureSessionQueue = DispatchQueue(label: "capture_session_queue")
+    captureSessionQueue.setSpecific(
+      key: captureSessionQueueSpecificKey, value: captureSessionQueueSpecificValue)
+    let cam = createCam(with: captureSessionQueue)
+    cam.setImageFileFormat(.heif)
+
+    let mockOutput = MockCapturePhotoOutput()
+    mockOutput.availablePhotoCodecTypes = [.hevc]
+    cam.capturePhotoOutput = mockOutput
+
+    captureSessionQueue.async {
+      cam.captureToFile(cropMode: .square) { result in
+        switch result {
+        case .success:
+          XCTFail("Expected unsupported square capture to fail")
+        case .failure(let error):
+          XCTAssertEqual((error as? PigeonError)?.code, "unsupported_square_photo_format")
+        }
+        expectation.fulfill()
+      }
+    }
+
+    waitForExpectations(timeout: 30, handler: nil)
+  }
+
   func testCaptureToFile_enablesHighResolutionForHeifWhenResolutionPresetIsMax() {
     let expectation = self.expectation(
       description: "Test must keep high-resolution photo capture enabled for HEIF max preset.")

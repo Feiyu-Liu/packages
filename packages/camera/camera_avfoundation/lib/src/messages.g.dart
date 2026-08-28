@@ -166,6 +166,9 @@ enum PlatformFocusMode { auto, locked }
 /// Pigeon version of ImageFileFormat.
 enum PlatformImageFileFormat { jpeg, heif, sdrHeif }
 
+/// AVFoundation-specific crop mode applied before the captured image is encoded.
+enum PlatformPhotoCropMode { none, square }
+
 enum PlatformImageFormatGroup { bgra8888, yuv420 }
 
 enum PlatformResolutionPreset { low, medium, high, veryHigh, ultraHigh, max }
@@ -175,6 +178,45 @@ enum PlatformVideoStabilizationMode {
   standard,
   cinematic,
   cinematicExtended,
+}
+
+/// AVFoundation-specific options for a still photo capture.
+class PlatformPhotoCaptureOptions {
+  PlatformPhotoCaptureOptions({required this.cropMode});
+
+  PlatformPhotoCropMode cropMode;
+
+  List<Object?> _toList() {
+    return <Object?>[cropMode];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static PlatformPhotoCaptureOptions decode(Object result) {
+    result as List<Object?>;
+    return PlatformPhotoCaptureOptions(
+      cropMode: result[0]! as PlatformPhotoCropMode,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PlatformPhotoCaptureOptions ||
+        other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(cropMode, other.cropMode);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
 }
 
 class PlatformCameraDescription {
@@ -857,44 +899,50 @@ class _PigeonCodec extends StandardMessageCodec {
     } else if (value is PlatformImageFileFormat) {
       buffer.putUint8(136);
       writeValue(buffer, value.index);
-    } else if (value is PlatformImageFormatGroup) {
+    } else if (value is PlatformPhotoCropMode) {
       buffer.putUint8(137);
       writeValue(buffer, value.index);
-    } else if (value is PlatformResolutionPreset) {
+    } else if (value is PlatformImageFormatGroup) {
       buffer.putUint8(138);
       writeValue(buffer, value.index);
-    } else if (value is PlatformVideoStabilizationMode) {
+    } else if (value is PlatformResolutionPreset) {
       buffer.putUint8(139);
       writeValue(buffer, value.index);
-    } else if (value is PlatformCameraDescription) {
+    } else if (value is PlatformVideoStabilizationMode) {
       buffer.putUint8(140);
-      writeValue(buffer, value.encode());
-    } else if (value is PlatformConstituentDevice) {
+      writeValue(buffer, value.index);
+    } else if (value is PlatformPhotoCaptureOptions) {
       buffer.putUint8(141);
       writeValue(buffer, value.encode());
-    } else if (value is PlatformCameraDevice) {
+    } else if (value is PlatformCameraDescription) {
       buffer.putUint8(142);
       writeValue(buffer, value.encode());
-    } else if (value is PlatformZoomCapabilities) {
+    } else if (value is PlatformConstituentDevice) {
       buffer.putUint8(143);
       writeValue(buffer, value.encode());
-    } else if (value is PlatformCameraState) {
+    } else if (value is PlatformCameraDevice) {
       buffer.putUint8(144);
       writeValue(buffer, value.encode());
-    } else if (value is PlatformCameraImageData) {
+    } else if (value is PlatformZoomCapabilities) {
       buffer.putUint8(145);
       writeValue(buffer, value.encode());
-    } else if (value is PlatformCameraImagePlane) {
+    } else if (value is PlatformCameraState) {
       buffer.putUint8(146);
       writeValue(buffer, value.encode());
-    } else if (value is PlatformMediaSettings) {
+    } else if (value is PlatformCameraImageData) {
       buffer.putUint8(147);
       writeValue(buffer, value.encode());
-    } else if (value is PlatformPoint) {
+    } else if (value is PlatformCameraImagePlane) {
       buffer.putUint8(148);
       writeValue(buffer, value.encode());
-    } else if (value is PlatformSize) {
+    } else if (value is PlatformMediaSettings) {
       buffer.putUint8(149);
+      writeValue(buffer, value.encode());
+    } else if (value is PlatformPoint) {
+      buffer.putUint8(150);
+      writeValue(buffer, value.encode());
+    } else if (value is PlatformSize) {
+      buffer.putUint8(151);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -930,34 +978,39 @@ class _PigeonCodec extends StandardMessageCodec {
         return value == null ? null : PlatformImageFileFormat.values[value];
       case 137:
         final value = readValue(buffer) as int?;
-        return value == null ? null : PlatformImageFormatGroup.values[value];
+        return value == null ? null : PlatformPhotoCropMode.values[value];
       case 138:
         final value = readValue(buffer) as int?;
-        return value == null ? null : PlatformResolutionPreset.values[value];
+        return value == null ? null : PlatformImageFormatGroup.values[value];
       case 139:
+        final value = readValue(buffer) as int?;
+        return value == null ? null : PlatformResolutionPreset.values[value];
+      case 140:
         final value = readValue(buffer) as int?;
         return value == null
             ? null
             : PlatformVideoStabilizationMode.values[value];
-      case 140:
-        return PlatformCameraDescription.decode(readValue(buffer)!);
       case 141:
-        return PlatformConstituentDevice.decode(readValue(buffer)!);
+        return PlatformPhotoCaptureOptions.decode(readValue(buffer)!);
       case 142:
-        return PlatformCameraDevice.decode(readValue(buffer)!);
+        return PlatformCameraDescription.decode(readValue(buffer)!);
       case 143:
-        return PlatformZoomCapabilities.decode(readValue(buffer)!);
+        return PlatformConstituentDevice.decode(readValue(buffer)!);
       case 144:
-        return PlatformCameraState.decode(readValue(buffer)!);
+        return PlatformCameraDevice.decode(readValue(buffer)!);
       case 145:
-        return PlatformCameraImageData.decode(readValue(buffer)!);
+        return PlatformZoomCapabilities.decode(readValue(buffer)!);
       case 146:
-        return PlatformCameraImagePlane.decode(readValue(buffer)!);
+        return PlatformCameraState.decode(readValue(buffer)!);
       case 147:
-        return PlatformMediaSettings.decode(readValue(buffer)!);
+        return PlatformCameraImageData.decode(readValue(buffer)!);
       case 148:
-        return PlatformPoint.decode(readValue(buffer)!);
+        return PlatformCameraImagePlane.decode(readValue(buffer)!);
       case 149:
+        return PlatformMediaSettings.decode(readValue(buffer)!);
+      case 150:
+        return PlatformPoint.decode(readValue(buffer)!);
+      case 151:
         return PlatformSize.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -1247,7 +1300,7 @@ class CameraApi {
 
   /// Takes a picture with the current settings, and returns the path to the
   /// resulting file.
-  Future<String> takePicture() async {
+  Future<String> takePicture(PlatformPhotoCaptureOptions options) async {
     final pigeonVar_channelName =
         'dev.flutter.pigeon.camera_avfoundation.CameraApi.takePicture$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
@@ -1255,7 +1308,9 @@ class CameraApi {
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[options],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(

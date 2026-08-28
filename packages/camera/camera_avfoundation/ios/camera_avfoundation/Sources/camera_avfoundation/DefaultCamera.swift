@@ -859,9 +859,21 @@ final class DefaultCamera: NSObject, Camera {
     }
   }
 
-  func captureToFile(completion: @escaping (Result<String, any Error>) -> Void) {
+  func captureToFile(
+    cropMode: PlatformPhotoCropMode = .none,
+    completion: @escaping (Result<String, any Error>) -> Void
+  ) {
     let isHEVCCodecAvailable = capturePhotoOutput.availablePhotoCodecTypes.contains(
       .hevc)
+    if cropMode == .square && (fileFormat != .sdrHeif || !isHEVCCodecAvailable) {
+      completion(
+        .failure(
+          PigeonError(
+            code: "unsupported_square_photo_format",
+            message: "Square capture currently requires SDR HEIF output.",
+            details: nil)))
+      return
+    }
     let fileExtension: String
     var settings: AVCapturePhotoSettings
 
@@ -896,6 +908,7 @@ final class DefaultCamera: NSObject, Camera {
       path: path,
       ioQueue: photoIOQueue,
       fileSaveMode: fileFormat == .sdrHeif && isHEVCCodecAvailable ? .sdrHeif : .original,
+      cropMode: cropMode,
       compressionQuality: imageFileCompressionQuality,
       willCaptureHandler: { [weak self] in
         self?.sendPhotoCaptureWillCapture()

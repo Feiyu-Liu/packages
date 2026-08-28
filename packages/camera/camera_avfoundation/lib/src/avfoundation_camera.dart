@@ -219,7 +219,25 @@ class AVFoundationCamera extends CameraPlatform {
 
   @override
   Future<XFile> takePicture(int cameraId) async {
-    final String path = await _hostApi.takePicture();
+    return takePictureWithOptions(
+      cameraId,
+      const AVFoundationPhotoCaptureOptions(),
+    );
+  }
+
+  /// Takes a picture using AVFoundation-specific [options].
+  Future<XFile> takePictureWithOptions(
+    int cameraId,
+    AVFoundationPhotoCaptureOptions options,
+  ) async {
+    final String path = await _hostApi.takePicture(
+      PlatformPhotoCaptureOptions(
+        cropMode: switch (options.cropMode) {
+          AVFoundationPhotoCropMode.none => PlatformPhotoCropMode.none,
+          AVFoundationPhotoCropMode.square => PlatformPhotoCropMode.square,
+        },
+      ),
+    );
     return XFile(path);
   }
 

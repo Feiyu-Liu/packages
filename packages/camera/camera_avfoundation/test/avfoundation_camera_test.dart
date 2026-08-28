@@ -492,11 +492,33 @@ void main() {
 
     test('Should take a picture and return an XFile instance', () async {
       const stubPath = '/test/path.jpg';
-      when(mockApi.takePicture()).thenAnswer((_) async => stubPath);
+      when(mockApi.takePicture(any)).thenAnswer((_) async => stubPath);
 
       final XFile file = await camera.takePicture(cameraId);
 
       expect(file.path, stubPath);
+      final options =
+          verify(mockApi.takePicture(captureAny)).captured.single
+              as PlatformPhotoCaptureOptions;
+      expect(options.cropMode, PlatformPhotoCropMode.none);
+    });
+
+    test('Should pass AVFoundation square crop option', () async {
+      const stubPath = '/test/path.heif';
+      when(mockApi.takePicture(any)).thenAnswer((_) async => stubPath);
+
+      final XFile file = await camera.takePictureWithOptions(
+        cameraId,
+        const AVFoundationPhotoCaptureOptions(
+          cropMode: AVFoundationPhotoCropMode.square,
+        ),
+      );
+
+      expect(file.path, stubPath);
+      final options =
+          verify(mockApi.takePicture(captureAny)).captured.single
+              as PlatformPhotoCaptureOptions;
+      expect(options.cropMode, PlatformPhotoCropMode.square);
     });
 
     test('Should prepare for video recording', () async {
